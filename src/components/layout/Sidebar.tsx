@@ -8,7 +8,8 @@ import { cn, formatRole, getInitials } from '@/lib/utils';
 import {
   LayoutDashboard, Users, Building2, Store, Truck, ClipboardList,
   ShoppingCart, DollarSign, BarChart3, Brain, ChevronLeft, ChevronRight,
-  Calendar, Package, BookOpen, Clock, LogOut, Settings, Bell,
+  Calendar, Package, BookOpen, Clock, LogOut, MapPin, FileText,
+  CheckSquare, Megaphone, TrendingUp, FlaskConical,
 } from 'lucide-react';
 
 interface NavItem {
@@ -18,21 +19,62 @@ interface NavItem {
   roles?: string[];
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Doctor CRM', href: '/dashboard/doctors', icon: Users },
-  { label: 'Hospitals', href: '/dashboard/hospitals', icon: Building2 },
-  { label: 'Retailers', href: '/dashboard/retailers', icon: Store },
-  { label: 'Distributors', href: '/dashboard/distributors', icon: Truck },
-  { label: 'Visits', href: '/dashboard/visits', icon: ClipboardList },
-  { label: 'Tour Planning', href: '/dashboard/tour-planning', icon: Calendar },
-  { label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
-  { label: 'Samples', href: '/dashboard/samples', icon: Package },
-  { label: 'Expenses', href: '/dashboard/expenses', icon: DollarSign },
-  { label: 'Training', href: '/dashboard/training', icon: BookOpen },
-  { label: 'Attendance', href: '/dashboard/attendance', icon: Clock },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'] },
-  { label: 'AI Copilot', href: '/dashboard/ai', icon: Brain },
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Overview',
+    items: [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: 'Field Work',
+    items: [
+      { label: 'Visits', href: '/dashboard/visits', icon: ClipboardList },
+      { label: 'Tour Planning', href: '/dashboard/tour-planning', icon: Calendar },
+      { label: 'Attendance', href: '/dashboard/attendance', icon: Clock },
+      { label: 'Leave', href: '/dashboard/leave', icon: Calendar },
+      { label: 'Expenses', href: '/dashboard/expenses', icon: DollarSign },
+    ],
+  },
+  {
+    title: 'CRM',
+    items: [
+      { label: 'Doctor CRM', href: '/dashboard/doctors', icon: Users },
+      { label: 'Hospitals', href: '/dashboard/hospitals', icon: Building2 },
+      { label: 'Retailers', href: '/dashboard/retailers', icon: Store },
+      { label: 'Distributors', href: '/dashboard/distributors', icon: Truck },
+    ],
+  },
+  {
+    title: 'Sales & Trade',
+    items: [
+      { label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
+      { label: 'Samples', href: '/dashboard/samples', icon: Package },
+      { label: 'Trade Schemes', href: '/dashboard/schemes', icon: TrendingUp, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'MARKETING', 'TRADE_REP'] },
+      { label: 'Retail Audit', href: '/dashboard/retail-audit', icon: CheckSquare, roles: ['MR', 'TRADE_REP', 'ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'] },
+    ],
+  },
+  {
+    title: 'Content & Training',
+    items: [
+      { label: 'Digital Detailing', href: '/dashboard/digital-detailing', icon: BookOpen },
+      { label: 'Content Library', href: '/dashboard/content', icon: Megaphone, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'MARKETING', 'PRODUCT_MANAGER'] },
+      { label: 'Training', href: '/dashboard/training', icon: FlaskConical },
+    ],
+  },
+  {
+    title: 'Management',
+    items: [
+      { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'] },
+      { label: 'Approvals', href: '/dashboard/approvals', icon: FileText, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'] },
+      { label: 'AI Copilot', href: '/dashboard/ai', icon: Brain },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -40,9 +82,8 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const visibleNav = NAV_ITEMS.filter(
-    (item) => !item.roles || item.roles.includes(user?.role || ''),
-  );
+  const filterByRole = (items: NavItem[]) =>
+    items.filter((item) => !item.roles || item.roles.includes(user?.role || ''));
 
   return (
     <aside
@@ -62,34 +103,52 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-        {visibleNav.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          const Icon = item.icon;
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
+        {NAV_SECTIONS.map((section) => {
+          const visible = filterByRole(section.items);
+          if (visible.length === 0) return null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
-                isActive
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                collapsed && 'justify-center px-2',
+            <div key={section.title}>
+              {!collapsed && (
+                <p className="px-3 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                  {section.title}
+                </p>
               )}
-            >
-              <Icon
-                className={cn(
-                  'w-4.5 h-4.5 flex-shrink-0',
-                  isActive ? 'text-emerald-600' : 'text-gray-400 group-hover:text-gray-600',
-                )}
-              />
-              {!collapsed && <span>{item.label}</span>}
-              {!collapsed && isActive && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              )}
-            </Link>
+              <div className="space-y-0.5">
+                {visible.map((item) => {
+                  const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/')) || (item.href !== '/dashboard' && pathname === item.href);
+                  const isExact = pathname === item.href;
+                  const isDashboard = item.href === '/dashboard';
+                  const active = isDashboard ? isExact : (pathname === item.href || pathname.startsWith(item.href + '/'));
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      title={collapsed ? item.label : undefined}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
+                        active
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                        collapsed && 'justify-center px-2',
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          'w-4 h-4 flex-shrink-0',
+                          active ? 'text-emerald-600' : 'text-gray-400 group-hover:text-gray-600',
+                        )}
+                      />
+                      {!collapsed && <span>{item.label}</span>}
+                      {!collapsed && active && (
+                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>

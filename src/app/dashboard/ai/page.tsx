@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Brain, Send, Loader2, Sparkles, User, ArrowLeft } from 'lucide-react';
+import { Brain, Send, Loader2, Sparkles, User, ArrowLeft, Mic, MicOff, MessageSquare, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 
@@ -18,13 +18,45 @@ const QUICK_PROMPTS = [
   'What are the top objections faced this month?',
   'Summarize last week\'s performance',
   'Which retailers haven\'t been visited in 30 days?',
+  'Draft my end-of-day report',
+  'Suggest next best action for Dr. Sharma',
+  'What\'s my coverage rate this month?',
 ];
 
 export default function AICopilotPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   const { user } = useAuth();
+
+  const startVoice = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice recognition not supported in this browser. Try Chrome.');
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput((prev) => prev ? prev + ' ' + transcript : transcript);
+      setIsListening(false);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
+
+  const stopVoice = () => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  };
 
   const chatMutation = useMutation({
     mutationFn: (msgs: Message[]) => api.post('/ai/chat', { messages: msgs }).then((r) => r.data.data.reply),
@@ -155,11 +187,19 @@ export default function AICopilotPage() {
               ))}
             </div>
           )}
-          <form onSubmit={handleSubmit} className="flex gap-3">
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <button
+              type="button"
+              onClick={isListening ? stopVoice : startVoice}
+              className={`p-3 rounded-xl transition-colors flex-shrink-0 ${isListening ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+              title={isListening ? 'Stop recording' : 'Voice input'}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask your AI copilot anything..."
+              placeholder={isListening ? '🎤 Listening...' : 'Ask your AI copilot anything...'}
               disabled={chatMutation.isPending}
               className="flex-1 px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all placeholder:text-gray-400 disabled:bg-gray-50"
             />

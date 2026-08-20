@@ -74,6 +74,27 @@ export default function DashboardPage() {
     queryFn: () => api.get('/visits?limit=5').then((r) => r.data.data.visits),
   });
 
+  const { data: retailerCoverage } = useQuery({
+    queryKey: ['retailer-coverage-dash'],
+    queryFn: () => api.get('/analytics/retailer-coverage').then((r) => r.data.data),
+  });
+
+  const { data: distributorStats } = useQuery({
+    queryKey: ['distributor-stats-dash'],
+    queryFn: () => api.get('/analytics/distributor-stats').then((r) => r.data.data),
+  });
+
+  const { data: orderStats } = useQuery({
+    queryKey: ['order-stats-dash'],
+    queryFn: () => api.get('/analytics/order-stats').then((r) => r.data.data),
+  });
+
+  const { data: auditStats } = useQuery({
+    queryKey: ['audit-stats-dash'],
+    queryFn: () => api.get('/retail-audit/stats/summary').then((r) => r.data.data),
+  });
+
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -124,7 +145,38 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Charts Row */}
+      {/* CRM KPI Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          title="Retailers"
+          value={retailerCoverage?.totalRetailers ?? '—'}
+          subtitle={`${retailerCoverage?.uniqueRetailers ?? 0} visited`}
+          icon={Activity}
+          color="emerald"
+        />
+        <KpiCard
+          title="Retailer Coverage"
+          value={retailerCoverage?.coverageRate != null ? `${retailerCoverage.coverageRate}%` : '—'}
+          subtitle="Field coverage rate"
+          icon={Target}
+          color="blue"
+        />
+        <KpiCard
+          title="Distributors"
+          value={distributorStats?.total ?? '—'}
+          subtitle={`${distributorStats?.utilizationRate ?? 0}% credit used`}
+          icon={Calendar}
+          color="violet"
+        />
+        <KpiCard
+          title="Orders Delivered"
+          value={orderStats?.byStatus?.find((s: any) => s.status === 'DELIVERED')?._count ?? 0}
+          subtitle={`₹${((orderStats?.totalRevenue ?? 0) / 100000).toFixed(1)}L revenue`}
+          icon={CheckCircle}
+          color="amber"
+        />
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Visit Trend */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
