@@ -7,6 +7,7 @@ import {
   TrendingUp, MapPin, FileText, Star, Mail,
   Stethoscope, BarChart3, Shield, Zap, PlayCircle, Activity,
 } from 'lucide-react';
+import { Footer } from "@/components/ui/animated-footer";
 
 /* ============================================================================
    PHARMAX — Premium White & Forest-Green Landing Page (Cinematic Edition)
@@ -661,47 +662,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Footer ─────────────────────────────────────────────────────── */}
-      <footer className="border-t border-emerald-950/[0.06] py-12 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 bg-[#0B3B2E] rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xs font-display">Px</span>
-                </div>
-                <span className="font-bold text-emerald-950 font-display">Pharmax</span>
-              </div>
-              <p className="text-emerald-950/45 text-sm leading-relaxed">
-                The AI-powered commercial excellence platform for pharmaceutical sales teams.
-              </p>
-            </div>
-            {[
-              { title: 'Product', links: ['Features', 'Pricing', 'Changelog', 'Roadmap'] },
-              { title: 'Company', links: ['About', 'Blog', 'Careers', 'Press'] },
-              { title: 'Support', links: ['Documentation', 'API Reference', 'Status', 'Contact'] },
-            ].map(({ title, links }) => (
-              <div key={title}>
-                <h4 className="font-semibold text-emerald-950 text-sm mb-4">{title}</h4>
-                <ul className="space-y-3">
-                  {links.map((link) => (
-                    <li key={link}>
-                      <a href="#" className="text-emerald-950/45 hover:text-emerald-950/80 text-sm transition-colors">{link}</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-emerald-950/[0.06] pt-8 flex items-center justify-between text-sm text-emerald-950/30">
-            <p>© 2024 Pharmax. All rights reserved.</p>
-            <div className="flex items-center gap-6">
-              <a href="#" className="hover:text-emerald-950/60 transition-colors">Privacy</a>
-              <a href="#" className="hover:text-emerald-950/60 transition-colors">Terms</a>
-              <a href="#" className="hover:text-emerald-950/60 transition-colors">Cookies</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
