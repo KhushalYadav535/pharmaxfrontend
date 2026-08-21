@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate, formatCurrency, APPROVAL_STATUS_COLORS } from '@/lib/utils';
 import { DollarSign, Plus, Loader2, X, CheckCircle, XCircle } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 
@@ -61,9 +62,9 @@ export default function ExpensesPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Submit and track your field expenses</p>
         </div>
-        <button onClick={() => setShowForm(true)} id="add-expense-btn" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+        <Link href="/dashboard/expenses/new" id="add-expense-btn" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
           <Plus className="w-4 h-4" /> Add Expense
-        </button>
+        </Link>
       </div>
 
       {/* Summary KPI Cards */}

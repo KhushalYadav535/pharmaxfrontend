@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Calendar, Plus, ChevronLeft, ChevronRight, CheckCircle, X, Loader2, Clock, MapPin } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { APPROVAL_STATUS_COLORS, formatDate } from '@/lib/utils';
@@ -90,9 +91,9 @@ export default function TourPlanningPage() {
           <p className="text-gray-500 text-sm mt-1">Plan and manage your daily field visits</p>
         </div>
         {selectedDay && !isManager && (
-          <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+          <Link href="/dashboard/tour-planning/new" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
             <Plus className="w-4 h-4" /> Add Plan
-          </button>
+          </Link>
         )}
       </div>
 
@@ -194,7 +195,7 @@ export default function TourPlanningPage() {
                 <div className="py-8 text-center text-gray-400">
                   <Calendar className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">No plans for this day</p>
-                  {!isManager && <button onClick={() => setShowAddForm(true)} className="text-emerald-600 text-xs font-medium mt-1">Add plan →</button>}
+                  {!isManager && <Link href="/dashboard/tour-planning/new" className="text-emerald-600 text-xs font-medium mt-1 inline-block">Add plan →</Link>}
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50">

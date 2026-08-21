@@ -15,9 +15,6 @@ const EMPTY_FORM = {
 export default function DistributorsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ ...EMPTY_FORM });
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -26,41 +23,10 @@ export default function DistributorsPage() {
     placeholderData: (prev) => prev,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (body: any) => api.post('/distributors', body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['distributors'] }); closeForm(); },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: any }) => api.put(`/distributors/${id}`, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['distributors'] }); closeForm(); },
-  });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/distributors/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['distributors'] }),
   });
-
-  const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditingId(null); setShowForm(true); };
-  const openEdit = (d: any) => {
-    setForm({
-      name: d.name || '', ownerName: d.ownerName || '', phone: d.phone || '', email: d.email || '',
-      address: d.address || '', city: d.city || '', state: d.state || '', pincode: d.pincode || '',
-      gstNumber: d.gstNumber || '', drugLicenseNumber: d.drugLicenseNumber || '',
-      warehouseAddress: d.warehouseAddress || '', creditLimit: d.creditLimit || 0,
-      creditDays: d.creditDays || 30, outstandingAmount: d.outstandingAmount || 0,
-    });
-    setEditingId(d.id);
-    setShowForm(true);
-  };
-  const closeForm = () => { setShowForm(false); setEditingId(null); };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const body = { ...form, creditLimit: Number(form.creditLimit), creditDays: Number(form.creditDays), outstandingAmount: Number(form.outstandingAmount) };
-    if (editingId) updateMutation.mutate({ id: editingId, body });
-    else createMutation.mutate(body);
-  };
 
   const creditUtilPct = (dist: any) => dist.creditLimit > 0 ? Math.min(100, (dist.outstandingAmount / dist.creditLimit) * 100) : 0;
 
@@ -74,9 +40,9 @@ export default function DistributorsPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Manage your distribution network and credit</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
+        <Link href="/dashboard/distributors/new" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
           <Plus className="w-4 h-4" /> Add Distributor
-        </button>
+        </Link>
       </div>
 
       {/* Stats */}
@@ -122,7 +88,7 @@ export default function DistributorsPage() {
                 <tr><td colSpan={8} className="text-center py-16 text-gray-400">
                   <Truck className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="font-medium">No distributors found</p>
-                  <button onClick={openCreate} className="text-emerald-600 text-sm font-medium mt-2">Add your first distributor →</button>
+                  <Link href="/dashboard/distributors/new" className="text-emerald-600 text-sm font-medium mt-2 inline-block">Add your first distributor →</Link>
                 </td></tr>
               ) : (
                 data?.distributors?.map((d: any) => {
@@ -159,9 +125,8 @@ export default function DistributorsPage() {
                         <span className="text-sm font-medium text-gray-700">{d._count?.retailers ?? 0}</span>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1">
                           <Link href={`/dashboard/distributors/${d.id}`} className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600" title="View"><Eye className="w-3.5 h-3.5" /></Link>
-                          <button onClick={() => openEdit(d)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
                           <button onClick={() => { if (confirm('Delete this distributor?')) deleteMutation.mutate(d.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       </td>
@@ -183,95 +148,6 @@ export default function DistributorsPage() {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white">
-              <h2 className="font-bold text-gray-900 text-lg">{editingId ? 'Edit Distributor' : 'Add New Distributor'}</h2>
-              <button onClick={closeForm} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-500" /></button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <div>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Basic Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Distributor Name *</label>
-                    <input required value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="e.g. Shree Pharma Distributors" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Owner Name</label>
-                    <input value={form.ownerName} onChange={(e) => setForm(f => ({ ...f, ownerName: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-                    <input value={form.phone} onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" value={form.email} onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">GST Number</label>
-                    <input value={form.gstNumber} onChange={(e) => setForm(f => ({ ...f, gstNumber: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Drug License No.</label>
-                    <input value={form.drugLicenseNumber} onChange={(e) => setForm(f => ({ ...f, drugLicenseNumber: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Location</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Office Address</label>
-                    <input value={form.address} onChange={(e) => setForm(f => ({ ...f, address: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Warehouse Address</label>
-                    <input value={form.warehouseAddress} onChange={(e) => setForm(f => ({ ...f, warehouseAddress: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
-                    <input value={form.city} onChange={(e) => setForm(f => ({ ...f, city: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
-                    <input value={form.state} onChange={(e) => setForm(f => ({ ...f, state: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Credit Terms</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Credit Limit (₹)</label>
-                    <input type="number" min={0} value={form.creditLimit} onChange={(e) => setForm(f => ({ ...f, creditLimit: parseFloat(e.target.value) }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Credit Days</label>
-                    <input type="number" min={0} value={form.creditDays} onChange={(e) => setForm(f => ({ ...f, creditDays: parseInt(e.target.value) }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Outstanding (₹)</label>
-                    <input type="number" min={0} value={form.outstandingAmount} onChange={(e) => setForm(f => ({ ...f, outstandingAmount: parseFloat(e.target.value) }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={closeForm} className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl disabled:opacity-60">
-                  {(createMutation.isPending || updateMutation.isPending) ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : editingId ? 'Update Distributor' : 'Add Distributor'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

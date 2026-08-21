@@ -35,10 +35,12 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Field Work',
     items: [
       { label: 'Visits', href: '/dashboard/visits', icon: ClipboardList },
+      { label: 'Daily Reports', href: '/dashboard/daily-reports', icon: FileText },
       { label: 'Tour Planning', href: '/dashboard/tour-planning', icon: Calendar },
       { label: 'Attendance', href: '/dashboard/attendance', icon: Clock },
       { label: 'Leave', href: '/dashboard/leave', icon: Calendar },
       { label: 'Expenses', href: '/dashboard/expenses', icon: DollarSign },
+      { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare },
     ],
   },
   {
@@ -47,16 +49,20 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Doctor CRM', href: '/dashboard/doctors', icon: Users },
       { label: 'Hospitals', href: '/dashboard/hospitals', icon: Building2 },
       { label: 'Retailers', href: '/dashboard/retailers', icon: Store },
+      { label: 'Stockists', href: '/dashboard/stockists', icon: Package },
       { label: 'Distributors', href: '/dashboard/distributors', icon: Truck },
+      { label: 'CFAs', href: '/dashboard/cfas', icon: Building2 },
     ],
   },
   {
     title: 'Sales & Trade',
     items: [
       { label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
+      { label: 'Stock Reports', href: '/dashboard/stock-reports', icon: BarChart3 },
       { label: 'Samples', href: '/dashboard/samples', icon: Package },
       { label: 'Trade Schemes', href: '/dashboard/schemes', icon: TrendingUp, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'MARKETING', 'TRADE_REP'] },
       { label: 'Retail Audit', href: '/dashboard/retail-audit', icon: CheckSquare, roles: ['MR', 'TRADE_REP', 'ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'] },
+      { label: 'Competitor Surveys', href: '/dashboard/surveys', icon: FileText },
     ],
   },
   {

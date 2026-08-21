@@ -15,7 +15,6 @@ export default function DoctorsPage() {
   const [specialty, setSpecialty] = useState('');
   const [classification, setClassification] = useState('');
   const [page, setPage] = useState(1);
-  const [showForm, setShowForm] = useState(false);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -24,20 +23,7 @@ export default function DoctorsPage() {
     placeholderData: (prev) => prev,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (body: any) => api.post('/doctors', body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['doctors'] }); setShowForm(false); },
-  });
-
-  const [form, setForm] = useState({
-    firstName: '', lastName: '', specialty: 'General Medicine', classification: 'B',
-    prescriptionPotential: 5, phone: '', city: 'Mumbai', visitFrequency: 2,
-  });
-
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate({ ...form, prescriptionPotential: Number(form.prescriptionPotential), visitFrequency: Number(form.visitFrequency), state: 'Maharashtra', isActive: true });
-  };
+  // Removed inline modal states
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -49,13 +35,13 @@ export default function DoctorsPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Manage your doctor relationships and visit history</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
+        <Link
+          href="/dashboard/doctors/new"
           id="add-doctor-btn"
           className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
         >
           <Plus className="w-4 h-4" /> Add Doctor
-        </button>
+        </Link>
       </div>
 
       {/* Stats */}
@@ -129,7 +115,7 @@ export default function DoctorsPage() {
                   <td colSpan={7} className="text-center py-12 text-gray-400">
                     <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>No doctors found</p>
-                    <button onClick={() => setShowForm(true)} className="text-emerald-600 text-sm font-medium mt-2">Add your first doctor →</button>
+                    <Link href="/dashboard/doctors/new" className="text-emerald-600 text-sm font-medium mt-2 inline-block">Add your first doctor →</Link>
                   </td>
                 </tr>
               ) : (
@@ -182,62 +168,6 @@ export default function DoctorsPage() {
         )}
       </div>
 
-      {/* Add Doctor Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">Add New Doctor</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">First Name *</label>
-                  <input required value={form.firstName} onChange={(e) => setForm(f => ({ ...f, firstName: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Last Name *</label>
-                  <input required value={form.lastName} onChange={(e) => setForm(f => ({ ...f, lastName: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Specialty *</label>
-                <select value={form.specialty} onChange={(e) => setForm(f => ({ ...f, specialty: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white">
-                  {SPECIALTIES.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Classification</label>
-                  <select value={form.classification} onChange={(e) => setForm(f => ({ ...f, classification: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white">
-                    {CLASSIFICATIONS.map((c) => <option key={c} value={c}>{c.replace('_', '+')}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Rx Potential (1–10)</label>
-                  <input type="number" min={1} max={10} value={form.prescriptionPotential} onChange={(e) => setForm(f => ({ ...f, prescriptionPotential: Number(e.target.value) }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-                <input value={form.phone} onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
-              </div>
-              {createMutation.isError && (
-                <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-xl">{(createMutation.error as any)?.response?.data?.message || 'Failed to create doctor'}</p>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-colors">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60">
-                  {createMutation.isPending ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : 'Add Doctor'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
