@@ -1,9 +1,9 @@
 @import "tailwindcss";
-
+@config "../../tailwind.config.ts";
 :root {
   --font-inter: 'Inter', system-ui, sans-serif;
-  --color-primary: #059669;
-  --color-primary-light: #ECFDF5;
+  --color-primary: #0B6E4F;
+  --color-primary-light: #E8F5F1;
 }
 
 * {

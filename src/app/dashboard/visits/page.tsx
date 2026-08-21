@@ -1,21 +1,23 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate, VISIT_STATUS_COLORS, APPROVAL_STATUS_COLORS } from '@/lib/utils';
 import {
   ClipboardList, Plus, MapPin, Loader2, X, CheckCircle, Users,
-  Store, Truck, Mic, Camera, AlertTriangle, ChevronLeft, ChevronRight,
+  Store, Truck, Building2, Mic, Camera, AlertTriangle, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 const isManager = (role: string) => ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'].includes(role);
 
-type VisitTab = 'DOCTOR' | 'RETAILER' | 'DISTRIBUTOR';
+type VisitTab = 'DOCTOR' | 'RETAILER' | 'DISTRIBUTOR' | 'HOSPITAL';
 
 const TABS: { type: VisitTab; label: string; icon: any }[] = [
   { type: 'DOCTOR', label: 'Doctor Visits', icon: Users },
+  { type: 'HOSPITAL', label: 'Hospital Visits', icon: Building2 },
   { type: 'RETAILER', label: 'Retailer Visits', icon: Store },
   { type: 'DISTRIBUTOR', label: 'Distributor Visits', icon: Truck },
 ];
@@ -64,17 +66,22 @@ export default function VisitsPage() {
   const { data: doctors } = useQuery({
     queryKey: ['doctors-list'],
     queryFn: () => api.get('/doctors', { params: { limit: 100 } }).then((r) => r.data.data.doctors),
-    enabled: showForm && form.visitType === 'DOCTOR',
+    enabled: showForm && activeTab === 'DOCTOR',
   });
   const { data: retailersList } = useQuery({
     queryKey: ['retailers-list'],
     queryFn: () => api.get('/retailers', { params: { limit: 100 } }).then((r) => r.data.data.retailers),
-    enabled: showForm && form.visitType === 'RETAILER',
+    enabled: showForm && activeTab === 'RETAILER',
   });
   const { data: distributorsList } = useQuery({
     queryKey: ['distributors-list'],
     queryFn: () => api.get('/distributors', { params: { limit: 100 } }).then((r) => r.data.data.distributors),
-    enabled: showForm && form.visitType === 'DISTRIBUTOR',
+    enabled: showForm && activeTab === 'DISTRIBUTOR',
+  });
+  const { data: hospitalsList } = useQuery({
+    queryKey: ['hospitals-list'],
+    queryFn: () => api.get('/hospitals', { params: { limit: 100 } }).then((r) => r.data.data.hospitals),
+    enabled: showForm && activeTab === 'HOSPITAL',
   });
 
   const createMutation = useMutation({
@@ -111,6 +118,7 @@ export default function VisitsPage() {
     e.preventDefault();
     const payload: any = { ...form, visitType: activeTab };
     if (activeTab === 'DOCTOR') payload.doctorId = selectedEntityId;
+    if (activeTab === 'HOSPITAL') payload.hospitalId = selectedEntityId;
     if (activeTab === 'RETAILER') payload.retailerId = selectedEntityId;
     if (activeTab === 'DISTRIBUTOR') payload.distributorId = selectedEntityId;
     createMutation.mutate(payload);
@@ -144,7 +152,7 @@ export default function VisitsPage() {
   };
 
   const tabCounts: Record<VisitTab, number> = {
-    DOCTOR: 0, RETAILER: 0, DISTRIBUTOR: 0,
+    DOCTOR: 0, RETAILER: 0, DISTRIBUTOR: 0, HOSPITAL: 0
   };
 
   return (
@@ -233,9 +241,9 @@ export default function VisitsPage() {
                           </button>
                         )}
                         {visit.status === 'CHECKED_IN' && (
-                          <button onClick={() => { setCheckingOut(visit.id); setShowCheckoutForm(true); }} className="flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg">
+                          <Link href={`/dashboard/visits/${visit.id}/report`} className="flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg">
                             Submit Report
-                          </button>
+                          </Link>
                         )}
                         {isManager(user?.role || '') && visit.approvalStatus === 'PENDING' && visit.status === 'COMPLETED' && (
                           <button onClick={() => approveMutation.mutate(visit.id)} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg">
@@ -276,6 +284,15 @@ export default function VisitsPage() {
                   <select required value={selectedEntityId} onChange={(e) => setSelectedEntityId(e.target.value)} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white">
                     <option value="">Choose doctor...</option>
                     {doctors?.map((d: any) => <option key={d.id} value={d.id}>Dr. {d.firstName} {d.lastName} — {d.specialty}</option>)}
+                  </select>
+                </div>
+              )}
+              {activeTab === 'HOSPITAL' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Select Hospital *</label>
+                  <select required value={selectedEntityId} onChange={(e) => setSelectedEntityId(e.target.value)} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white">
+                    <option value="">Choose hospital...</option>
+                    {hospitalsList?.map((h: any) => <option key={h.id} value={h.id}>{h.name} — {h.city}</option>)}
                   </select>
                 </div>
               )}

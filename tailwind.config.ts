@@ -13,6 +13,19 @@ const config: Config = {
         sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
+        brand: {
+          50: '#E6F5ED',
+          100: '#CCF0DE',
+          200: '#99E1BD',
+          300: '#66D29C',
+          400: '#33C37B',
+          500: '#00B45A',
+          600: '#008A4E',
+          700: '#006F3E',
+          800: '#00542F',
+          900: '#003A20',
+          950: '#001F11',
+        },
         emerald: {
           50: '#ECFDF5',
           100: '#D1FAE5',
@@ -28,9 +41,9 @@ const config: Config = {
         },
       },
       boxShadow: {
-        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
-        'card-md': '0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05)',
-        'card-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05)',
+        'card': '0 4px 20px rgba(0, 0, 0, 0.08)',
+        'card-hover': '0 8px 30px rgba(0, 0, 0, 0.12)',
+        'card-sm': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
       },
       borderRadius: {
         '2xl': '1rem',
