@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, Building2, Store, Truck, ClipboardList,
   ShoppingCart, DollarSign, BarChart3, Brain, ChevronLeft, ChevronRight,
   Calendar, Package, BookOpen, Clock, LogOut, MapPin, FileText,
-  CheckSquare, Megaphone, TrendingUp, FlaskConical,
+  CheckSquare, Megaphone, TrendingUp, FlaskConical, Database,
 } from 'lucide-react';
 
 interface NavItem {
@@ -79,6 +79,13 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'] },
       { label: 'Approvals', href: '/dashboard/approvals', icon: FileText, roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN'] },
       { label: 'AI Copilot', href: '/dashboard/ai', icon: Brain },
+    ],
+  },
+  {
+    title: 'Masters',
+    items: [
+      { label: 'Location Master', href: '/dashboard/masters/locations', icon: MapPin, roles: ['SALES_ADMIN', 'SUPER_ADMIN'] },
+      { label: 'Employee Master', href: '/dashboard/masters/employees', icon: Users, roles: ['SALES_ADMIN', 'SUPER_ADMIN'] },
     ],
   },
 ];

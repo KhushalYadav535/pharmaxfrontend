@@ -45,6 +45,7 @@ export interface AlertItem {
   icon: 'alert' | 'file' | 'package' | 'users';
   title: string;
   subtitle: string;
+  link?: string;
 }
 
 export interface ProductFocusData {

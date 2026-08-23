@@ -127,6 +127,7 @@ export function deriveAlerts(visitStats: any, doctorStats: any): AlertItem[] {
       icon: 'alert',
       title: `${missed} visit(s) missed today`,
       subtitle: 'High priority • Reschedule required',
+      link: '/dashboard/visits',
     });
   }
 
@@ -137,6 +138,7 @@ export function deriveAlerts(visitStats: any, doctorStats: any): AlertItem[] {
       icon: 'file',
       title: `${pending} call reports pending`,
       subtitle: 'Complete before checkout',
+      link: '/dashboard/visits',
     });
   }
 
@@ -146,6 +148,7 @@ export function deriveAlerts(visitStats: any, doctorStats: any): AlertItem[] {
     icon: 'package',
     title: 'Sample stock running low',
     subtitle: 'Opportunity to reorder',
+    link: '/dashboard/samples',
   });
 
   if ((doctorStats?.total ?? 0) > 0) {
@@ -155,6 +158,7 @@ export function deriveAlerts(visitStats: any, doctorStats: any): AlertItem[] {
       icon: 'users',
       title: `${doctorStats.total} doctors in your territory`,
       subtitle: `${doctorStats.kolCount ?? 0} KOLs to prioritize`,
+      link: '/dashboard/doctors',
     });
   }
 

@@ -26,7 +26,7 @@ function AttentionItem({ item }: { item: AlertItem }) {
   const styles = TYPE_STYLES[item.type] || TYPE_STYLES.info;
 
   return (
-    <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
+    <Link href={item.link || '#'} className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
       <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0', styles.iconBg)}>
         <Icon className={cn('w-4 h-4', styles.iconColor)} />
       </div>
@@ -37,7 +37,7 @@ function AttentionItem({ item }: { item: AlertItem }) {
         </p>
       </div>
       <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0 mt-1 transition-colors" />
-    </div>
+    </Link>
   );
 }
 
