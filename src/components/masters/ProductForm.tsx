@@ -36,12 +36,21 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
   const isEdit = !!editData;
   const [name, setName] = useState(editData?.name ?? '');
   const [composition, setComposition] = useState(editData?.composition ?? '');
+  const [scientificName, setScientificName] = useState(editData?.scientificName ?? '');
   const [category, setCategory] = useState(editData?.category ?? '');
-  const [type, setType] = useState(editData?.speciality ?? ''); // Stored as speciality in DB
+  const [speciality, setSpeciality] = useState(editData?.speciality ?? '');
+  const [unitsInPackage, setUnitsInPackage] = useState(editData?.unitsInPackage ?? '');
   const [unit, setUnit] = useState(editData?.unit ?? 'Strip');
+  const [storageTemp, setStorageTemp] = useState(editData?.storageTemp ?? '');
+  const [productDetails, setProductDetails] = useState(editData?.productDetails ?? '');
+  const [productImage, setProductImage] = useState(editData?.productImage ?? '');
+  
   const [pts, setPts] = useState(editData?.pts ?? '');
   const [ptr, setPtr] = useState(editData?.ptr ?? '');
   const [mrp, setMrp] = useState(editData?.mrp ?? '');
+  
+  const [applicableFrom, setApplicableFrom] = useState(editData?.applicableFrom ? editData.applicableFrom.split('T')[0] : '');
+  const [applicableTo, setApplicableTo] = useState(editData?.applicableTo ? editData.applicableTo.split('T')[0] : '');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -64,8 +73,16 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
       setError('');
       
       const payload = {
-        name, composition, category, speciality: type, unit,
-        pts: parseFloat(pts), ptr: parseFloat(ptr), mrp: parseFloat(mrp)
+        name, composition, scientificName: scientificName || undefined,
+        category: category || undefined, speciality: speciality || undefined,
+        unitsInPackage: unitsInPackage ? parseFloat(unitsInPackage) : undefined,
+        unit,
+        storageTemp: storageTemp ? parseFloat(storageTemp) : undefined,
+        productDetails: productDetails || undefined,
+        productImage: productImage || undefined,
+        pts: parseFloat(pts), ptr: parseFloat(ptr), mrp: parseFloat(mrp),
+        applicableFrom: applicableFrom ? new Date(applicableFrom).toISOString() : undefined,
+        applicableTo: applicableTo ? new Date(applicableTo).toISOString() : undefined
       };
 
       if (isEdit) {
@@ -124,24 +141,40 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
             </div>
           </section>
 
-          {/* 2. Classification */}
+          {/* 2. Classification & Details */}
           <section>
-            <SectionHeader icon={Layers} label="Classification" />
+            <SectionHeader icon={Layers} label="Classification & Details" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Category">
-                <input type="text" value={category} onChange={e => setCategory(e.target.value)} className={inputCls} placeholder="e.g. Tablet" />
+                <input type="text" value={category} onChange={e => setCategory(e.target.value)} className={inputCls} placeholder="e.g. Pills, Syrup" />
               </Field>
-              <Field label="Type">
-                <input type="text" value={type} onChange={e => setType(e.target.value)} className={inputCls} placeholder="e.g. Analgesic" />
+              <Field label="Speciality">
+                <input type="text" value={speciality} onChange={e => setSpeciality(e.target.value)} className={inputCls} placeholder="e.g. General, Gyne" />
               </Field>
-              <Field label="Unit">
+              <Field label="Scientific Name">
+                <input type="text" value={scientificName} onChange={e => setScientificName(e.target.value)} className={inputCls} placeholder="" />
+              </Field>
+              <Field label="Unit Type">
                 <select value={unit} onChange={e => setUnit(e.target.value)} className={selectCls}>
                   <option value="Strip">Strip</option>
                   <option value="Bottle">Bottle</option>
                   <option value="Box">Box</option>
                   <option value="Vial">Vial</option>
                   <option value="Tube">Tube</option>
+                  <option value="Sachet">Sachet</option>
                 </select>
+              </Field>
+              <Field label="No. of Units in Package">
+                <input type="number" step="0.1" value={unitsInPackage} onChange={e => setUnitsInPackage(e.target.value)} className={inputCls} placeholder="e.g. 10" />
+              </Field>
+              <Field label="Storage Temp (°C)">
+                <input type="number" step="0.1" value={storageTemp} onChange={e => setStorageTemp(e.target.value)} className={inputCls} placeholder="e.g. 25" />
+              </Field>
+              <Field label="Product Image URL">
+                <input type="text" value={productImage} onChange={e => setProductImage(e.target.value)} className={inputCls} placeholder="https://..." />
+              </Field>
+              <Field label="Product Details" span2>
+                <input type="text" value={productDetails} onChange={e => setProductDetails(e.target.value)} className={inputCls} placeholder="Additional info..." />
               </Field>
             </div>
           </section>
@@ -167,6 +200,12 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
                   <span className="absolute left-3 top-[11px] text-gray-500 text-sm font-medium">₹</span>
                   <input type="number" step="0.01" value={mrp} onChange={e => setMrp(e.target.value)} className={`${inputCls} pl-7`} placeholder="0.00" />
                 </div>
+              </Field>
+              <Field label="Applicable From">
+                <input type="date" value={applicableFrom} onChange={e => setApplicableFrom(e.target.value)} className={inputCls} />
+              </Field>
+              <Field label="Applicable To">
+                <input type="date" value={applicableTo} onChange={e => setApplicableTo(e.target.value)} className={inputCls} />
               </Field>
             </div>
           </section>
