@@ -33,6 +33,14 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
     queryKey: ['distributors'],
     queryFn: () => api.get('/distributors', { params: { limit: 100 } }).then(r => r.data.data.distributors || [])
   });
+  const { data: productList = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => api.get('/products', { params: { limit: 200 } }).then(r => r.data.data.products || [])
+  });
+  const { data: hqList = [] } = useQuery({
+    queryKey: ['headquarters-list'],
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || [])
+  });
 
   const [name, setName]                   = useState('');
   const [gstinNumber, setGstinNumber]     = useState('');
@@ -71,12 +79,18 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
   const [drugLicenseNumber, setDrugLicenseNumber] = useState('');
   const [drugLicenseExpiry, setDrugLicenseExpiry] = useState('');
   const [visitFrequency, setVisitFrequency] = useState('2');
+  const [geoTag, setGeoTag]               = useState('');
+  const [hqId, setHqId]                   = useState('');
+  const [productIds, setProductIds]       = useState<string[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const toggleDay = (day: string) =>
     setVisitDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+
+  const toggleProduct = (id: string) =>
+    setProductIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
 
   const handleSubmit = async () => {
     if (!name.trim()) { setError('Retailer name is required'); return; }
@@ -99,6 +113,9 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
         website: website || undefined, facebook: facebook || undefined,
         instagram: instagram || undefined, twitter: twitter || undefined,
         visitDays: visitDays.length > 0 ? visitDays : undefined,
+        geoTag: geoTag || undefined,
+        hqId: hqId || undefined,
+        productIds: productIds.length > 0 ? productIds : undefined,
         ownerName: ownerName || undefined, pharmacistName: pharmacistName || undefined,
         drugLicenseNumber: drugLicenseNumber || undefined, 
         drugLicenseExpiry: drugLicenseExpiry ? new Date(drugLicenseExpiry).toISOString() : undefined,
@@ -295,6 +312,44 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
                 {day}
               </button>
             ))}
+          </div>
+        </div>
+
+        <Div label="Geo Tag & Mapping" />
+
+        <div>
+          <label className={lbl}>Geo Tag (Lat,Long)</label>
+          <input type="text" value={geoTag} onChange={e => setGeoTag(e.target.value)} placeholder="e.g. 19.0760,72.8777"
+            className={inp} style={{ '--tw-ring-color': RING } as any} />
+        </div>
+
+        <div>
+          <label className={lbl}>Headquarter (HQ)</label>
+          <div className="relative group">
+            <select value={hqId} onChange={e => setHqId(e.target.value)} className={sel} style={{ '--tw-ring-color': RING } as any}>
+              <option value="">Select HQ...</option>
+              {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name} ({h.code})</option>)}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
+          </div>
+        </div>
+
+        <Div label="Products Selected" />
+
+        <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+          <label className={lbl}>Products Stocked at this Retailer</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {(productList as any[]).map((p: any) => (
+              <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
+                className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-all ${
+                  productIds.includes(p.id)
+                    ? 'border-2 border-violet-500 bg-violet-50 text-violet-700'
+                    : 'border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                }`}>
+                {p.name}
+              </button>
+            ))}
+            {(productList as any[]).length === 0 && <span className="text-xs text-gray-400">No products available</span>}
           </div>
         </div>
 

@@ -18,7 +18,7 @@ export default function LocationForm({ onClose, editData }: LocationFormProps) {
   // HQ dropdown (territories)
   const { data: hqList = [] } = useQuery({
     queryKey: ['territories-for-form'],
-    queryFn: () => api.get('/locations', { params: { limit: 200 } }).then(r => r.data.data.locations || []),
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || []),
   });
 
   const [name, setName] = useState(editData?.name ?? '');

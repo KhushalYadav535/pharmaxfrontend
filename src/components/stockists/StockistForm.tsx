@@ -32,6 +32,14 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
     queryKey: ['cfas'],
     queryFn: () => api.get('/cfas', { params: { limit: 100 } }).then(r => r.data.data.cfas || [])
   });
+  const { data: productList = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => api.get('/products', { params: { limit: 200 } }).then(r => r.data.data.products || [])
+  });
+  const { data: hqList = [] } = useQuery({
+    queryKey: ['headquarters-list'],
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || [])
+  });
 
   const [name, setName]                   = useState('');
   const [gstinNumber, setGstinNumber]     = useState('');
@@ -62,12 +70,17 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
   const [instagram, setInstagram]         = useState('');
   const [twitter, setTwitter]             = useState('');
   const [visitDays, setVisitDays]         = useState<string[]>([]);
+  const [geoTag, setGeoTag]               = useState('');
+  const [productIds, setProductIds]       = useState<string[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const toggleDay = (day: string) =>
     setVisitDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+
+  const toggleProduct = (id: string) =>
+    setProductIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
 
   const handleSubmit = async () => {
     if (!name.trim()) { setError('Stockist name is required'); return; }
@@ -81,6 +94,7 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
         category: category || undefined,
         address1: address1 || undefined, address2: address2 || undefined,
         city: city || undefined, district: district || undefined, state: state || undefined, pin: pin || undefined,
+        geoTag: geoTag || undefined,
         areaId: areaId || undefined, hqId: hqId || undefined, cfaId: cfaId || undefined,
         mobileNumber: mobileNumber || undefined, whatsappNumber: whatsappNumber || undefined,
         email: email || undefined, 
@@ -89,6 +103,7 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
         website: website || undefined, facebook: facebook || undefined,
         instagram: instagram || undefined, twitter: twitter || undefined,
         visitDays: visitDays.length > 0 ? visitDays : undefined,
+        productIds: productIds.length > 0 ? productIds : undefined,
       });
       if (onSuccess) onSuccess();
       else router.push('/dashboard/stockists');
@@ -161,7 +176,7 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
           <div className="relative group">
             <select value={hqId} onChange={e => setHqId(e.target.value)} className={sel} style={{ '--tw-ring-color': RING } as any}>
               <option value="">Select HQ...</option>
-              {territoryList.map((h: any) => <option key={h.id} value={h.id}>{h.name}</option>)}
+              {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name} ({h.code})</option>)}
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
           </div>
@@ -336,6 +351,13 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
           </div>
         </div>
 
+        <Div label="Geo Tag" />
+        <div>
+          <label className={lbl}>Geo Tag (Lat,Long)</label>
+          <input type="text" value={geoTag} onChange={e => setGeoTag(e.target.value)} placeholder="e.g. 19.0760,72.8777"
+            className={inp} style={{ '--tw-ring-color': RING } as any} />
+        </div>
+
         <Div label="Social Media" />
 
         <div>
@@ -360,6 +382,25 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
           <label className={lbl}>Twitter / X</label>
           <input type="text" value={twitter} onChange={e => setTwitter(e.target.value)} placeholder="@handle"
             className={inp} style={{ '--tw-ring-color': RING } as any} />
+        </div>
+
+        <Div label="Products Selected" />
+
+        <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+          <label className={lbl}>Products Stocked by this Stockist</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {(productList as any[]).map((p: any) => (
+              <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
+                className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-all ${
+                  productIds.includes(p.id)
+                    ? 'border-2 border-cyan-500 bg-cyan-50 text-cyan-700'
+                    : 'border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                }`}>
+                {p.name}
+              </button>
+            ))}
+            {(productList as any[]).length === 0 && <span className="text-xs text-gray-400">No products available</span>}
+          </div>
         </div>
 
         {error && (

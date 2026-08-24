@@ -35,15 +35,30 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
     queryKey: ['hospitals'],
     queryFn: () => api.get('/hospitals', { params: { limit: 100 } }).then(r => r.data.data.hospitals || [])
   });
+  const { data: productList = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => api.get('/products', { params: { limit: 200 } }).then(r => r.data.data.products || [])
+  });
+  const { data: retailerList = [] } = useQuery({
+    queryKey: ['retailers'],
+    queryFn: () => api.get('/retailers', { params: { limit: 200 } }).then(r => r.data.data.retailers || [])
+  });
+  const { data: hqList = [] } = useQuery({
+    queryKey: ['headquarters-list'],
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || [])
+  });
 
   // FFMS Fields
   const [salutation, setSalutation]           = useState('Dr.');
   const [firstName, setFirstName]             = useState('');
+  const [middleName, setMiddleName]           = useState('');
   const [lastName, setLastName]               = useState('');
   const [specialty, setSpecialty]             = useState('');
   const [subSpecialty, setSubSpecialty]       = useState('');
   const [qualification, setQualification]     = useState('');
   const [classification, setClassification]   = useState('B');
+  const [category, setCategory]               = useState('');
+  const [prescriber, setPrescriber]           = useState(true);
   const [prescriptionPotential, setPrescriptionPotential] = useState('');
   const [gender, setGender]                   = useState('');
   const [maritalStatus, setMaritalStatus]     = useState('');
@@ -58,9 +73,13 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
   const [district, setDistrict]               = useState('');
   const [state, setState]                     = useState('');
   const [pincode, setPincode]                 = useState('');
+  const [geoTag, setGeoTag]                   = useState('');
   const [areaId, setAreaId]                   = useState('');
   const [territoryId, setTerritoryId]         = useState('');
+  const [hqId, setHqId]                       = useState('');
   const [hospitalId, setHospitalId]           = useState('');
+  const [retailerId, setRetailerId]           = useState('');
+  const [productIds, setProductIds]           = useState<string[]>([]);
   const [website, setWebsite]                 = useState('');
   const [facebook, setFacebook]               = useState('');
   const [instagram, setInstagram]             = useState('');
@@ -70,6 +89,9 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
   const [kolCategory, setKolCategory]         = useState('');
   const [visitFrequency, setVisitFrequency]   = useState('1');
   const [notes, setNotes]                     = useState('');
+
+  const toggleProduct = (id: string) =>
+    setProductIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -85,10 +107,12 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
       setIsSubmitting(true); setError('');
       await api.post('/doctors', {
         salutation: salutation || undefined,
-        firstName, lastName, specialty,
+        firstName, middleName: middleName || undefined, lastName, specialty,
         subSpecialty: subSpecialty || undefined,
         qualification: qualification || undefined,
         classification: classification || undefined,
+        category: category || undefined,
+        prescriber,
         prescriptionPotential: prescriptionPotential ? Number(prescriptionPotential) : undefined,
         gender: gender || undefined,
         maritalStatus: maritalStatus || undefined,
@@ -103,9 +127,13 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
         district: district || undefined,
         state: state || undefined,
         pincode: pincode || undefined,
+        geoTag: geoTag || undefined,
         areaId: areaId || undefined,
         territoryId: territoryId || undefined,
+        hqId: hqId || undefined,
         hospitalId: hospitalId || undefined,
+        retailerId: retailerId || undefined,
+        productIds: productIds.length > 0 ? productIds : undefined,
         website: website || undefined,
         facebook: facebook || undefined,
         instagram: instagram || undefined,
@@ -167,6 +195,12 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
         <div>
           <label className={labelCls}>First Name <span className="text-red-500">*</span></label>
           <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name"
+            className={inputCls} style={{ '--tw-ring-color': RING } as any} />
+        </div>
+
+        <div>
+          <label className={labelCls}>Middle Name</label>
+          <input type="text" value={middleName} onChange={e => setMiddleName(e.target.value)} placeholder="Middle name"
             className={inputCls} style={{ '--tw-ring-color': RING } as any} />
         </div>
 
@@ -237,12 +271,30 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         <div>
-          <label className={labelCls}>Classification</label>
+          <label className={labelCls}>Classification / Category</label>
           <div className="flex gap-2">
             {CLASSIFICATIONS.map((c: any) => (
               <button key={c} onClick={() => setClassification(c)}
                 className={`flex-1 py-3 rounded-xl border text-[13px] font-extrabold transition-all ${classification === c ? 'border-2 border-blue-500 bg-blue-50 text-blue-700' : 'border-2 border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
                 {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Category</label>
+          <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. Specialist / General"
+            className={inputCls} style={{ '--tw-ring-color': RING } as any} />
+        </div>
+
+        <div>
+          <label className={labelCls}>Prescriber</label>
+          <div className="flex gap-2">
+            {(['Yes', 'No'] as const).map(opt => (
+              <button key={opt} onClick={() => setPrescriber(opt === 'Yes')}
+                className={`flex-1 py-3 rounded-xl border text-[13px] font-bold transition-all ${prescriber === (opt === 'Yes') ? 'border-2 border-blue-500 bg-blue-50 text-blue-700' : 'border-2 border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
+                {opt}
               </button>
             ))}
           </div>
@@ -266,6 +318,28 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
             <select value={hospitalId} onChange={e => setHospitalId(e.target.value)} className={selectCls} style={{ '--tw-ring-color': RING } as any}>
               <option value="">Select Hospital...</option>
               {hospitalList.map((h: any) => <option key={h.id} value={h.id}>{h.name}</option>)}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Retailer (FK)</label>
+          <div className="relative group">
+            <select value={retailerId} onChange={e => setRetailerId(e.target.value)} className={selectCls} style={{ '--tw-ring-color': RING } as any}>
+              <option value="">Select Retailer...</option>
+              {retailerList.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Headquarter (HQ)</label>
+          <div className="relative group">
+            <select value={hqId} onChange={e => setHqId(e.target.value)} className={selectCls} style={{ '--tw-ring-color': RING } as any}>
+              <option value="">Select HQ...</option>
+              {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name} ({h.code})</option>)}
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
           </div>
@@ -375,6 +449,12 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         <div>
+          <label className={labelCls}>Geo Tag (Lat,Long)</label>
+          <input type="text" value={geoTag} onChange={e => setGeoTag(e.target.value)} placeholder="e.g. 19.0760,72.8777"
+            className={inputCls} style={{ '--tw-ring-color': RING } as any} />
+        </div>
+
+        <div>
           <label className={labelCls}>Area (FK)</label>
           <div className="relative group">
             <select value={areaId} onChange={e => setAreaId(e.target.value)} className={selectCls} style={{ '--tw-ring-color': RING } as any}>
@@ -393,6 +473,26 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
               {territoryList.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
+          </div>
+        </div>
+
+        {/* ── Products ── */}
+        <SectionDivider label="Products Selected" />
+
+        <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+          <label className={labelCls}>Products Promoted to this Doctor</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {(productList as any[]).map((p: any) => (
+              <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
+                className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-all ${
+                  productIds.includes(p.id)
+                    ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                }`}>
+                {p.name}
+              </button>
+            ))}
+            {(productList as any[]).length === 0 && <span className="text-xs text-gray-400">No products available</span>}
           </div>
         </div>
 

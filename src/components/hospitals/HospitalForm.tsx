@@ -20,9 +20,22 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
     queryKey: ['areas'],
     queryFn: () => api.get('/areas', { params: { limit: 100 } }).then(r => r.data.data.areas || [])
   });
+  const { data: productList = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => api.get('/products', { params: { limit: 200 } }).then(r => r.data.data.products || [])
+  });
+  const { data: hqList = [] } = useQuery({
+    queryKey: ['headquarters-list'],
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || [])
+  });
+  const { data: cfaList = [] } = useQuery({
+    queryKey: ['cfas'],
+    queryFn: () => api.get('/cfas', { params: { limit: 100 } }).then(r => r.data.data.cfas || [])
+  });
 
   const [name, setName]                   = useState('');
   const [hospitalType, setHospitalType]   = useState('');
+  const [category, setCategory]           = useState('');
   const [beds, setBeds]                   = useState('');
   const [departments, setDepartments]     = useState('');
   const [gstinNumber, setGstinNumber]     = useState('');
@@ -36,10 +49,15 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
   const [address1, setAddress1]           = useState('');
   const [address2, setAddress2]           = useState('');
   const [city, setCity]                   = useState('');
+  const [district, setDistrict]           = useState('');
   const [state, setState]                 = useState('');
   const [pincode, setPincode]             = useState('');
+  const [geoTag, setGeoTag]               = useState('');
   const [areaId, setAreaId]               = useState('');
   const [territoryId, setTerritoryId]     = useState('');
+  const [hqId, setHqId]                   = useState('');
+  const [cfaId, setCfaId]                 = useState('');
+  const [productIds, setProductIds]       = useState<string[]>([]);
   const [phone, setPhone]                 = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [email, setEmail]                 = useState('');
@@ -57,6 +75,9 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
   const toggleDay = (day: string) =>
     setVisitDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
 
+  const toggleProduct = (id: string) =>
+    setProductIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+
   const handleSubmit = async () => {
     if (!name.trim()) { setError('Hospital name is required'); return; }
     try {
@@ -64,6 +85,7 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
       const depts = departments.split(',').map((d: any) => d.trim()).filter(Boolean);
       await api.post('/hospitals', {
         name, type: hospitalType || undefined,
+        category: category || undefined,
         beds: beds ? Number(beds) : undefined,
         departments: depts.length > 0 ? depts : undefined,
         gstinNumber: gstinNumber || undefined, panNumber: panNumber || undefined,
@@ -71,9 +93,12 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
         contactDesignation: contactDesignation || undefined, contactDept: contactDept || undefined,
         gender: gender || undefined, maritalStatus: maritalStatus || undefined,
         address1: address1 || undefined, address2: address2 || undefined,
-        city: city || undefined,
+        city: city || undefined, district: district || undefined,
         state: state || undefined, pincode: pincode || undefined,
+        geoTag: geoTag || undefined,
         areaId: areaId || undefined, territoryId: territoryId || undefined,
+        hqId: hqId || undefined, cfaId: cfaId || undefined,
+        productIds: productIds.length > 0 ? productIds : undefined,
         phone: phone || undefined, whatsappNumber: whatsappNumber || undefined,
         email: email || undefined,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : undefined, 
@@ -134,6 +159,12 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
           </div>
+        </div>
+
+        <div>
+          <label className={lbl}>Category</label>
+          <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. Government / Private"
+            className={inp} style={ringStyle} />
         </div>
 
         <div>
@@ -266,7 +297,7 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
           </div>
         </div>
         <div>
-          <label className={lbl}>City/District</label>
+          <label className={lbl}>City</label>
           <div className="relative group">
             <select value={city} onChange={e => setCity(e.target.value)} disabled={!state} className={`${sel} disabled:opacity-50`} style={{ '--tw-ring-color': RING } as any}>
               <option value="">Select City/District...</option>
@@ -274,6 +305,11 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
           </div>
+        </div>
+
+        <div>
+          <label className={lbl}>District</label>
+          <input type="text" value={district} onChange={e => setDistrict(e.target.value)} placeholder="District" className={inp} style={ringStyle} />
         </div>
 
         <div>
@@ -286,11 +322,38 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
         </div>
 
         <div>
+          <label className={lbl}>Geo Tag (Lat,Long)</label>
+          <input type="text" value={geoTag} onChange={e => setGeoTag(e.target.value)} placeholder="e.g. 19.0760,72.8777" className={inp} style={ringStyle} />
+        </div>
+
+        <div>
           <label className={lbl}>Area (FK)</label>
           <div className="relative group">
             <select value={areaId} onChange={e => setAreaId(e.target.value)} className={sel} style={ringStyle}>
               <option value="">Select Area...</option>
               {areaList.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
+          </div>
+        </div>
+
+        <div>
+          <label className={lbl}>Headquarter (HQ)</label>
+          <div className="relative group">
+            <select value={hqId} onChange={e => setHqId(e.target.value)} className={sel} style={ringStyle}>
+              <option value="">Select HQ...</option>
+              {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name} ({h.code})</option>)}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
+          </div>
+        </div>
+
+        <div>
+          <label className={lbl}>CFA (FK)</label>
+          <div className="relative group">
+            <select value={cfaId} onChange={e => setCfaId(e.target.value)} className={sel} style={ringStyle}>
+              <option value="">Select CFA...</option>
+              {cfaList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
           </div>
@@ -307,6 +370,25 @@ export default function HospitalForm({ onSuccess }: { onSuccess?: () => void }) 
                 {day}
               </button>
             ))}
+          </div>
+        </div>
+
+        <Div label="Products Selected" />
+
+        <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+          <label className={lbl}>Products Available at this Hospital</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {(productList as any[]).map((p: any) => (
+              <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
+                className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-all ${
+                  productIds.includes(p.id)
+                    ? 'border-2 border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                }`}>
+                {p.name}
+              </button>
+            ))}
+            {(productList as any[]).length === 0 && <span className="text-xs text-gray-400">No products available</span>}
           </div>
         </div>
 

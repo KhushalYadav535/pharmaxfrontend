@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Loader2, AlertCircle, Grid3X3 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { INDIAN_STATES, INDIAN_STATES_AND_DISTRICTS } from '@/lib/constants';
 
 interface AreaFormProps {
   onClose: () => void;
@@ -20,14 +21,18 @@ export default function AreaForm({ onClose, editData }: AreaFormProps) {
   });
 
   const { data: hqList = [] } = useQuery({
-    queryKey: ['territories-for-form'],
-    queryFn: () => api.get('/locations', { params: { limit: 200 } }).then(r => r.data.data.locations || []), // Placeholder if Territory API isn't built yet, typically fetched from /territories. Using /locations for demo consistency with LocationForm.
+    queryKey: ['headquarters-list'],
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || []),
   });
 
   const [name, setName] = useState(editData?.name ?? '');
   const [locationId, setLocationId] = useState(editData?.locationId ?? '');
   const [hqId, setHqId] = useState(editData?.hqId ?? '');
+  const [district, setDistrict] = useState(editData?.district ?? '');
+  const [state, setState] = useState(editData?.state ?? '');
+  const [pinCode, setPinCode] = useState(editData?.pinCode ?? '');
 
+  const districts = state ? (INDIAN_STATES_AND_DISTRICTS[state] ?? []) : [];
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,6 +44,9 @@ export default function AreaForm({ onClose, editData }: AreaFormProps) {
         name: name.trim(),
         locationId: locationId || undefined,
         hqId: hqId || undefined,
+        district: district || undefined,
+        state: state || undefined,
+        pinCode: pinCode || undefined,
       };
       if (isEdit) {
         await api.put(`/areas/${editData.id}`, payload);
@@ -108,9 +116,46 @@ export default function AreaForm({ onClose, editData }: AreaFormProps) {
                 className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/25 focus:border-amber-400 bg-white"
               >
                 <option value="">None</option>
-                {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name} ({h.code})</option>)}
               </select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">State</label>
+              <select
+                value={state}
+                onChange={e => { setState(e.target.value); setDistrict(''); }}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/25 focus:border-amber-400 bg-white"
+              >
+                <option value="">Select state</option>
+                {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">District</label>
+              <select
+                value={district}
+                onChange={e => setDistrict(e.target.value)}
+                disabled={!state}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/25 focus:border-amber-400 bg-white disabled:opacity-50"
+              >
+                <option value="">Select district</option>
+                {districts.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Pin Code</label>
+            <input
+              value={pinCode}
+              onChange={e => setPinCode(e.target.value)}
+              placeholder="400001"
+              maxLength={6}
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/25 focus:border-amber-400"
+            />
           </div>
         </div>
 

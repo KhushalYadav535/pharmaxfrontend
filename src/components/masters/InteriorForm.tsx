@@ -20,8 +20,14 @@ export default function InteriorForm({ onClose, editData }: InteriorFormProps) {
     queryFn: () => api.get('/locations', { params: { limit: 200 } }).then(r => r.data.data.locations || []),
   });
 
+  const { data: hqList = [] } = useQuery({
+    queryKey: ['headquarters-list'],
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || []),
+  });
+
   const [name, setName] = useState(editData?.name ?? '');
   const [locationId, setLocationId] = useState(editData?.locationId ?? '');
+  const [hqId, setHqId] = useState(editData?.hqId ?? '');
   const [district, setDistrict] = useState(editData?.district ?? '');
   const [state, setState] = useState(editData?.state ?? '');
   const [pinCode, setPinCode] = useState(editData?.pinCode ?? '');
@@ -50,6 +56,7 @@ export default function InteriorForm({ onClose, editData }: InteriorFormProps) {
       const payload = {
         name: name.trim(),
         locationId: locationId || undefined,
+        hqId: hqId || undefined,
         district: district || undefined,
         state: state || undefined,
         pinCode: pinCode || undefined,
@@ -115,6 +122,19 @@ export default function InteriorForm({ onClose, editData }: InteriorFormProps) {
             >
               <option value="">None</option>
               {locationList.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+
+          {/* Headquarter */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Headquarter (HQ)</label>
+            <select
+              value={hqId}
+              onChange={e => setHqId(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/25 focus:border-violet-400 bg-white"
+            >
+              <option value="">None</option>
+              {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name} ({h.code})</option>)}
             </select>
           </div>
 

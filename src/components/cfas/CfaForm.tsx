@@ -25,9 +25,18 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
     queryKey: ['territories'],
     queryFn: () => api.get('/locations', { params: { limit: 100 } }).then(r => r.data.data.locations || [])
   });
+  const { data: productList = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => api.get('/products', { params: { limit: 200 } }).then(r => r.data.data.products || [])
+  });
+  const { data: hqList = [] } = useQuery({
+    queryKey: ['headquarters-list'],
+    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || [])
+  });
 
   // Basic Info
   const [name, setName]                   = useState('');
+  const [category, setCategory]           = useState('');
   const [gstinNumber, setGstinNumber]     = useState('');
   const [panNumber, setPanNumber]         = useState('');
 
@@ -46,8 +55,11 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
   const [district, setDistrict]           = useState('');
   const [city, setCity]                   = useState('');
   const [pin, setPin]                     = useState('');
+  const [geoTag, setGeoTag]               = useState('');
   const [areaId, setAreaId]               = useState('');
   const [hqId, setHqId]                   = useState(''); // Territory
+  const [productIds, setProductIds]       = useState<string[]>([]);
+  const [visitDays, setVisitDays]         = useState<string[]>([]);
 
   // Communication
   const [mobileNumber, setMobileNumber]   = useState('');
@@ -67,17 +79,25 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const availableDistricts = state && INDIAN_STATES_AND_DISTRICTS[state] ? INDIAN_STATES_AND_DISTRICTS[state] : [];
 
+  const toggleProduct = (id: string) =>
+    setProductIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+
+  const toggleDay = (day: string) =>
+    setVisitDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+
   const handleSubmit = async () => {
     if (!name.trim()) { setError('CFA name is required'); return; }
     try {
       setIsSubmitting(true); setError('');
       await api.post('/cfas', {
-        name, gstinNumber: gstinNumber || undefined, panNumber: panNumber || undefined,
+        name, category: category || undefined,
+        gstinNumber: gstinNumber || undefined, panNumber: panNumber || undefined,
         contactFirstName: contactFirstName || undefined, contactLastName: contactLastName || undefined,
         contactDesignation: contactDesignation || undefined, contactDept: contactDept || undefined,
         gender: gender || undefined, maritalStatus: maritalStatus || undefined,
         address1: address1 || undefined, address2: address2 || undefined,
         city: city || undefined, district: district || undefined, state: state || undefined, pin: pin || undefined,
+        geoTag: geoTag || undefined,
         areaId: areaId || undefined, hqId: hqId || undefined,
         mobileNumber: mobileNumber || undefined, whatsappNumber: whatsappNumber || undefined,
         email: email || undefined, 
@@ -85,6 +105,8 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
         marriageAnniversary: marriageAnniversary ? new Date(marriageAnniversary).toISOString() : undefined,
         website: website || undefined, facebook: facebook || undefined,
         instagram: instagram || undefined, twitter: twitter || undefined,
+        productIds: productIds.length > 0 ? productIds : undefined,
+        visitDays: visitDays.length > 0 ? visitDays : undefined,
       });
       if (onSuccess) onSuccess();
       else router.push('/dashboard/cfas');
@@ -134,6 +156,10 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="xl:col-span-2">
             <label className={lbl}>CFA Name <span className="text-red-500">*</span></label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Acme Pharma Depot" className={inp} style={ringStyle} />
+          </div>
+          <div>
+            <label className={lbl}>Category</label>
+            <input value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. A / B / C" className={inp} style={ringStyle} />
           </div>
           <div>
             <label className={lbl}>GSTIN Number</label>
@@ -244,8 +270,8 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="relative xl:col-span-2">
             <label className={lbl}>Mapped Territory (HQ)</label>
             <select value={hqId} onChange={e => setHqId(e.target.value)} className={sel} style={ringStyle}>
-              <option value="">Select Territory / HQ...</option>
-              {territoryList.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              <option value="">Select HQ...</option>
+              {hqList.map((h: any) => <option key={h.id} value={h.id}>{h.name} ({h.code})</option>)}
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[35px] pointer-events-none" />
           </div>
@@ -256,6 +282,25 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
               {areaList.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[35px] pointer-events-none" />
+          </div>
+
+          <Div label="Visit Days" />
+          <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+            <label className={lbl}>Visit Days</label>
+            <div className="flex flex-wrap gap-2">
+              {['MON','TUE','WED','THU','FRI','SAT','SUN'].map(day => (
+                <button key={day} type="button" onClick={() => toggleDay(day)}
+                  className={`px-4 py-2.5 rounded-xl border text-[13px] font-bold transition-all ${visitDays.includes(day) ? 'border-2 border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-2 border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Div label="Geo Tag" />
+          <div>
+            <label className={lbl}>Geo Tag (Lat,Long)</label>
+            <input value={geoTag} onChange={e => setGeoTag(e.target.value)} placeholder="e.g. 19.0760,72.8777" className={inp} style={ringStyle} />
           </div>
 
           <Div label="Social Media & Links" />
@@ -274,6 +319,24 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
           <div>
             <label className={lbl}>Twitter Handle</label>
             <input value={twitter} onChange={e => setTwitter(e.target.value)} placeholder="@handle" className={inp} style={ringStyle} />
+          </div>
+
+          <Div label="Products Selected" />
+          <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+            <label className={lbl}>Products Supplied by this CFA</label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {(productList as any[]).map((p: any) => (
+                <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
+                  className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-all ${
+                    productIds.includes(p.id)
+                      ? 'border-2 border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  }`}>
+                  {p.name}
+                </button>
+              ))}
+              {(productList as any[]).length === 0 && <span className="text-xs text-gray-400">No products available</span>}
+            </div>
           </div>
 
         </div>

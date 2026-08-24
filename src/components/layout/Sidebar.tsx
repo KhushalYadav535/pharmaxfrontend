@@ -84,8 +84,10 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Masters',
     items: [
+      { label: 'Headquarter Master', href: '/dashboard/masters/headquarters', icon: Building2, roles: ['SALES_ADMIN', 'SUPER_ADMIN'] },
       { label: 'Location Master', href: '/dashboard/masters/locations', icon: MapPin, roles: ['SALES_ADMIN', 'SUPER_ADMIN'] },
       { label: 'Employee Master', href: '/dashboard/masters/employees', icon: Users, roles: ['SALES_ADMIN', 'SUPER_ADMIN'] },
+      { label: 'Product Master', href: '/dashboard/masters/products', icon: Package, roles: ['SALES_ADMIN', 'SUPER_ADMIN'] },
     ],
   },
 ];
