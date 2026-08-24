@@ -57,9 +57,6 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
 
   const validate = () => {
     if (!name.trim()) return 'Product Name is required';
-    if (!mrp) return 'MRP is required';
-    if (!ptr) return 'Price to Retailer is required';
-    if (!pts) return 'Price to Stockist is required';
     return null;
   };
 
@@ -80,7 +77,7 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
         storageTemp: storageTemp ? parseFloat(storageTemp) : undefined,
         productDetails: productDetails || undefined,
         productImage: productImage || undefined,
-        pts: parseFloat(pts), ptr: parseFloat(ptr), mrp: parseFloat(mrp),
+        pts: 0, ptr: 0, mrp: 0,
         applicableFrom: applicableFrom ? new Date(applicableFrom).toISOString() : undefined,
         applicableTo: applicableTo ? new Date(applicableTo).toISOString() : undefined
       };
@@ -175,37 +172,6 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
               </Field>
               <Field label="Product Details" span2>
                 <input type="text" value={productDetails} onChange={e => setProductDetails(e.target.value)} className={inputCls} placeholder="Additional info..." />
-              </Field>
-            </div>
-          </section>
-
-          {/* 3. Pricing Details */}
-          <section>
-            <SectionHeader icon={DollarSign} label="Pricing Details" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="Price to Stockist (PTS)" required>
-                <div className="relative">
-                  <span className="absolute left-3 top-[11px] text-gray-500 text-sm font-medium">₹</span>
-                  <input type="number" step="0.01" value={pts} onChange={e => setPts(e.target.value)} className={`${inputCls} pl-7`} placeholder="0.00" />
-                </div>
-              </Field>
-              <Field label="Price to Retailer (PTR)" required>
-                <div className="relative">
-                  <span className="absolute left-3 top-[11px] text-gray-500 text-sm font-medium">₹</span>
-                  <input type="number" step="0.01" value={ptr} onChange={e => setPtr(e.target.value)} className={`${inputCls} pl-7`} placeholder="0.00" />
-                </div>
-              </Field>
-              <Field label="M.R.P" required>
-                <div className="relative">
-                  <span className="absolute left-3 top-[11px] text-gray-500 text-sm font-medium">₹</span>
-                  <input type="number" step="0.01" value={mrp} onChange={e => setMrp(e.target.value)} className={`${inputCls} pl-7`} placeholder="0.00" />
-                </div>
-              </Field>
-              <Field label="Applicable From">
-                <input type="date" value={applicableFrom} onChange={e => setApplicableFrom(e.target.value)} className={inputCls} />
-              </Field>
-              <Field label="Applicable To">
-                <input type="date" value={applicableTo} onChange={e => setApplicableTo(e.target.value)} className={inputCls} />
               </Field>
             </div>
           </section>

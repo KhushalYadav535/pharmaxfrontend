@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
   Package, Plus, Search, Loader2, ChevronLeft, ChevronRight,
-  Pencil, Trash2, Layers, DollarSign,
+  Pencil, Trash2, Layers, Thermometer, Box, FileText, Image as ImageIcon
 } from 'lucide-react';
 import ProductForm from '@/components/masters/ProductForm';
 
@@ -104,9 +104,9 @@ export default function ProductMasterPage() {
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[11px] font-bold">
                 <tr>
-                  <th className="px-6 py-4">Product Info</th>
+                  <th className="px-6 py-4">Product Details</th>
                   <th className="px-6 py-4">Classification</th>
-                  <th className="px-6 py-4">Pricing</th>
+                  <th className="px-6 py-4">Packaging & Storage</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -125,34 +125,48 @@ export default function ProductMasterPage() {
                   prods.map(p => (
                     <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${!p.isActive ? 'opacity-50' : ''}`}>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                            <Package className="w-5 h-5" />
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-blue-50/50 border border-blue-100 flex items-center justify-center font-bold shrink-0 overflow-hidden">
+                            {p.productImage ? (
+                              <img src={p.productImage} alt={p.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <Package className="w-6 h-6 text-blue-500" />
+                            )}
                           </div>
                           <div>
-                            <p className="font-bold text-gray-900">{p.name}</p>
-                            <p className="text-xs text-gray-500 font-medium">Code: {p.productCode}</p>
-                            {p.composition && <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[200px]">{p.composition}</p>}
+                            <p className="font-bold text-gray-900 text-[15px] leading-tight">{p.name}</p>
+                            <p className="text-xs text-gray-500 font-medium mt-0.5">Code: <span className="text-blue-600">{p.productCode}</span></p>
+                            {p.scientificName && <p className="text-[11px] text-gray-600 mt-1 flex items-center gap-1"><FileText className="w-3 h-3"/> {p.scientificName}</p>}
+                            {p.composition && <p className="text-[11px] text-gray-400 truncate max-w-[200px]">{p.composition}</p>}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-2">
                           {p.category && (
-                            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md w-max">
                               <Layers className="w-3.5 h-3.5 text-gray-400" /> {p.category}
                             </div>
                           )}
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                            <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold">{p.unit}</span>
-                          </div>
+                          {p.speciality && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full w-max">
+                              {p.speciality}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1 text-xs">
-                          <p className="text-gray-500">PTS: <span className="font-semibold text-gray-900">₹{p.pts?.toFixed(2)}</span></p>
-                          <p className="text-gray-500">PTR: <span className="font-semibold text-gray-900">₹{p.ptr?.toFixed(2)}</span></p>
-                          <p className="text-gray-500">MRP: <span className="font-bold text-blue-600">₹{p.mrp?.toFixed(2)}</span></p>
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-xs text-gray-700 font-medium">
+                            <Box className="w-4 h-4 text-blue-500" /> 
+                            <span>{p.unit}</span>
+                            {p.unitsInPackage && <span className="text-gray-400 font-normal">({p.unitsInPackage} units/pack)</span>}
+                          </div>
+                          {p.storageTemp != null && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-blue-600 font-medium mt-1">
+                              <Thermometer className="w-3.5 h-3.5" /> Storage: {p.storageTemp}°C
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
