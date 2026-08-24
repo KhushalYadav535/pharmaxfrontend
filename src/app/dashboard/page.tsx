@@ -35,6 +35,7 @@ import ProductFocus from '@/components/dashboard/ProductFocus';
 import AiAssistantCard from '@/components/dashboard/AiAssistantCard';
 import QuickActions from '@/components/dashboard/QuickActions';
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav';
+import DashboardCharts from '@/components/dashboard/DashboardCharts';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function getGreeting() {
@@ -195,6 +196,11 @@ export default function DashboardPage() {
           subtitle={`${kpis.coverageVisited} of ${kpis.coverageTotal} doctors visited`}
         />
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          ANALYTICS CHARTS ROW
+          ═══════════════════════════════════════════════════════════════════ */}
+      <DashboardCharts />
 
       {/* ═══════════════════════════════════════════════════════════════════
           MIDDLE ROW: Next Visit (3) | Route Map (5) | Alerts (4) — 260px

@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, Building2, Store, Truck, ClipboardList,
   ShoppingCart, DollarSign, BarChart3, Brain, ChevronLeft, ChevronRight,
   Calendar, Package, BookOpen, Clock, LogOut, MapPin, FileText,
-  CheckSquare, Megaphone, TrendingUp, FlaskConical, Database,
+  CheckSquare, Megaphone, TrendingUp, FlaskConical, Database, Target
 } from 'lucide-react';
 
 interface NavItem {
@@ -57,6 +57,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Sales & Trade',
     items: [
+      { label: 'Targets', href: '/dashboard/targets', icon: Target },
       { label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
       { label: 'Stock Reports', href: '/dashboard/stock-reports', icon: BarChart3 },
       { label: 'Samples', href: '/dashboard/samples', icon: Package },
