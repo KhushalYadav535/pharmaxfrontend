@@ -246,7 +246,7 @@ export default function OrderForm({ onClose, editData }: OrderFormProps) {
               <div className="bg-blue-50 p-5 rounded-2xl border-2 border-blue-200 shadow-sm flex flex-col justify-center">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[11px] font-bold text-blue-500 uppercase tracking-wide">Extra Discount</span>
-                  <input type="number" min="0" step="any" value={orderDiscount} onChange={e => setOrderDiscount(e.target.value)} className="w-24 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-right outline-none focus:ring-2 focus:ring-blue-400" />
+                  <input type="number" min="0" step="any" value={orderDiscount} onChange={e => setOrderDiscount(parseFloat(e.target.value) || 0)} className="w-24 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-right outline-none focus:ring-2 focus:ring-blue-400" />
                 </div>
                 <div className="h-px bg-blue-200/50 my-2 w-full" />
                 <div className="flex items-center justify-between">
