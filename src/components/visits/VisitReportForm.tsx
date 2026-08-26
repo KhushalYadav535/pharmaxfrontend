@@ -162,6 +162,56 @@ export default function VisitReportForm({ visit }: VisitReportFormProps) {
     },
   };
 
+  // ── Business Signal options per visit type (as per FFMS image) ──────────────
+  const BUSINESS_SIGNALS: Record<string, { id: string; emoji: string; label: string }[]> = {
+    DOCTOR: [
+      { id: 'will_prescribe', emoji: '👍', label: 'Will Prescribe' },
+      { id: 'needs_samples', emoji: '🎁', label: 'Needs Samples' },
+      { id: 'needs_more_info', emoji: 'ℹ️', label: 'Needs More Information' },
+      { id: 'price_concern', emoji: '💸', label: 'Price Concern' },
+      { id: 'uses_competitor', emoji: '⚔️', label: 'Uses Competitor' },
+      { id: 'stock_issue', emoji: '📦', label: 'Stock Issue' },
+      { id: 'budget_constraint', emoji: '💰', label: 'Budget Constraint' },
+      { id: 'not_interested', emoji: '❌', label: 'Not Interested' },
+    ],
+    HOSPITAL: [
+      { id: 'likely_to_purchase', emoji: '✅', label: 'Likely to Purchase' },
+      { id: 'needs_proposal', emoji: '📄', label: 'Needs Proposal' },
+      { id: 'budget_approval_pending', emoji: '⏳', label: 'Budget Approval Pending' },
+      { id: 'tender_in_progress', emoji: '📋', label: 'Tender in Progress' },
+      { id: 'prefers_competitor', emoji: '⚔️', label: 'Prefers Competitor' },
+      { id: 'pricing_concern', emoji: '💸', label: 'Pricing Concern' },
+      { id: 'low_priority', emoji: '📉', label: 'Low Priority' },
+      { id: 'not_interested', emoji: '❌', label: 'Not Interested' },
+    ],
+    RETAILER: [
+      { id: 'interested_products', emoji: '🌟', label: 'Interested in Our Products' },
+      { id: 'needs_stock', emoji: '📦', label: 'Needs Stock' },
+      { id: 'price_sensitive', emoji: '💸', label: 'Price Sensitive' },
+      { id: 'demand_low', emoji: '📉', label: 'Demand Low' },
+      { id: 'competitor_stocked', emoji: '⚔️', label: 'Competitor Stocked' },
+      { id: 'payment_issue', emoji: '💰', label: 'Payment Issue' },
+      { id: 'fast_moving', emoji: '🚀', label: 'Fast Moving Product' },
+      { id: 'not_interested', emoji: '❌', label: 'Not Interested' },
+    ],
+    DISTRIBUTOR: [
+      { id: 'likely_to_purchase', emoji: '✅', label: 'Likely to Purchase' },
+      { id: 'needs_proposal', emoji: '📄', label: 'Needs Proposal' },
+      { id: 'budget_approval_pending', emoji: '⏳', label: 'Budget Approval Pending' },
+      { id: 'payment_issue', emoji: '💰', label: 'Payment Issue' },
+      { id: 'competitor_stocked', emoji: '⚔️', label: 'Competitor Stocked' },
+      { id: 'price_sensitive', emoji: '💸', label: 'Price Sensitive' },
+      { id: 'fast_moving', emoji: '🚀', label: 'Fast Moving Product' },
+      { id: 'not_interested', emoji: '❌', label: 'Not Interested' },
+    ],
+    STOCKIST: [
+      { id: 'needs_stock', emoji: '📦', label: 'Needs Stock' },
+      { id: 'payment_issue', emoji: '💰', label: 'Payment Issue' },
+      { id: 'price_sensitive', emoji: '💸', label: 'Price Sensitive' },
+      { id: 'not_interested', emoji: '❌', label: 'Not Interested' },
+    ],
+  };
+
   const config = typeConfig[visit.visitType as keyof typeof typeConfig] || typeConfig.DOCTOR;
   const TopIcon = config.icon;
 
@@ -189,6 +239,15 @@ export default function VisitReportForm({ visit }: VisitReportFormProps) {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ── Visit Feedback sub-fields ────────────────────────────────────────────────
+  // A. Engagement — emoji sentiment
+  const [engagement, setEngagement] = useState<'Excellent' | 'Positive' | 'Neutral' | 'Negative' | ''>('');
+  // B. Business Signal — multi-select chips (role-specific)
+  const [businessSignals, setBusinessSignals] = useState<string[]>([]);
+  // Add note (optional)
+  const [feedbackNote, setFeedbackNote] = useState('');
+  const [showFeedbackNote, setShowFeedbackNote] = useState(false);
+
   // Available products (would be fetched from API in real use)
   const availableProducts: { id: string; name: string }[] = visit.availableProducts || [];
   const filteredProducts = availableProducts.filter(p =>
@@ -213,6 +272,10 @@ export default function VisitReportForm({ visit }: VisitReportFormProps) {
         jointVisit: jointVisit === 'Yes',
         jointVisitWith: jointVisit === 'Yes' ? jointVisitWith : undefined,
         productsPromoted,
+        // Feedback sub-fields
+        engagement,
+        businessSignals,
+        feedbackNote,
         // Legacy CRM fields
         visitObjective: objectives,
         followUpAction: followUp,
@@ -325,16 +388,92 @@ export default function VisitReportForm({ visit }: VisitReportFormProps) {
 
         {/* ── 3. Visit Feedback (FFMS Field) ── */}
         <section>
-          <h3 className="text-[13px] font-bold text-gray-900 mb-2">
+          <h3 className="text-[13px] font-bold text-gray-900 mb-4">
             3. Visit Feedback <span className="font-normal text-gray-500">(FFMS Field)</span>
           </h3>
-          <textarea
-            value={visitFeedback}
-            onChange={e => setVisitFeedback(e.target.value)}
-            rows={2}
-            placeholder="Feedback from this visit..."
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none resize-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-          />
+
+          {/* A. Engagement */}
+          <div className="mb-5">
+            <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-2.5">
+              A. Engagement <span className="font-normal normal-case text-gray-400">(Overall interaction level)</span>
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {([
+                { id: 'Excellent', emoji: '😃', color: 'text-emerald-600', border: 'border-emerald-400', bg: 'bg-emerald-50' },
+                { id: 'Positive', emoji: '😊', color: 'text-yellow-500', border: 'border-yellow-400', bg: 'bg-yellow-50' },
+                { id: 'Neutral', emoji: '😐', color: 'text-orange-500', border: 'border-orange-400', bg: 'bg-orange-50' },
+                { id: 'Negative', emoji: '😡', color: 'text-red-500', border: 'border-red-400', bg: 'bg-red-50' },
+              ] as const).map((opt) => {
+                const isSelected = engagement === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setEngagement(isSelected ? '' : opt.id)}
+                    className={`flex flex-col items-center justify-center py-3 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? `${opt.border} ${opt.bg}`
+                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="text-xl mb-1">{opt.emoji}</span>
+                    <span className={`text-[10px] font-bold ${ isSelected ? opt.color : 'text-gray-600' }`}>{opt.id}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* B. Business Signal */}
+          <div className="mb-4">
+            <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-2.5">
+              B. Business Signal <span className="font-normal normal-case text-gray-400">
+                ({typeConfig[visit.visitType as keyof typeof typeConfig]?.name || 'Entity'}'s response / business outlook)
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(BUSINESS_SIGNALS[visit.visitType] || BUSINESS_SIGNALS.DOCTOR).map((sig) => {
+                const isSelected = businessSignals.includes(sig.id);
+                return (
+                  <button
+                    key={sig.id}
+                    type="button"
+                    onClick={() => toggleArray(setBusinessSignals, businessSignals, sig.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-semibold transition-all ${
+                      isSelected
+                        ? `border-2 ${config.borderColor} ${config.lightBg} ${config.textColor}`
+                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span>{sig.emoji}</span>
+                    {sig.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Add Note (Optional) */}
+          {!showFeedbackNote ? (
+            <button
+              type="button"
+              onClick={() => setShowFeedbackNote(true)}
+              className={`flex items-center gap-1.5 text-[12px] font-semibold ${config.textColor} hover:opacity-80 transition-opacity`}
+            >
+              <span className="text-base">✏️</span> Add Note (Optional)
+            </button>
+          ) : (
+            <div>
+              <textarea
+                value={feedbackNote}
+                onChange={e => setFeedbackNote(e.target.value)}
+                rows={2}
+                autoFocus
+                placeholder="Add a note about the visit feedback..."
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none resize-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              />
+            </div>
+          )}
         </section>
 
         {/* ── 4. Remarks (FFMS Field) ── */}

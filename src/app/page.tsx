@@ -592,6 +592,62 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ─── Built For Every Role ───────────────────────────────────────── */}
+      <section className="py-28 px-6 bg-[#0B3B2E] text-white relative overflow-hidden">
+        <Aurora dark />
+        <div className="absolute inset-0 dot-grid opacity-20 pointer-events-none" />
+        <div className="relative max-w-7xl mx-auto">
+          <Reveal>
+            <div className="text-center mb-16">
+              <p className="text-emerald-400 font-semibold text-sm mb-3 tracking-[0.1em] uppercase">Unified Ecosystem</p>
+              <h2 className="text-4xl font-display font-bold">Built for every role in pharma</h2>
+              <p className="mt-4 text-lg text-emerald-100/60 max-w-2xl mx-auto">From the medical representative in the field to the national sales head, Pharmax provides specialized tools for everyone.</p>
+            </div>
+          </Reveal>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { role: 'Medical Reps (MR)', icon: Users, highlights: ['Daily Tour Plans (DTP)', 'GPS-based Check-ins', 'E-Detailing & Visual Aids', 'Auto-generated Call Reports'] },
+              { role: 'Managers (ASM/RSM)', icon: Activity, highlights: ['Real-time Territory Tracking', 'Live Team KPIs', 'One-click Approvals', 'AI Coaching Insights'] },
+              { role: 'Admins & Management', icon: Shield, highlights: ['Master Data Management', 'Sales & Revenue Analytics', 'Compliance Monitoring', 'Custom ROI Reports'] },
+            ].map(({ role, icon: Icon, highlights }, i) => (
+              <Reveal key={role} delay={i * 150}>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-colors h-full">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-6">
+                    <Icon className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-4 font-display">{role}</h3>
+                  <ul className="space-y-3">
+                    {highlights.map((h) => (
+                      <li key={h} className="flex items-start gap-3 text-sm text-emerald-100/70">
+                        <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                        <span>{h}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Integrations ───────────────────────────────────────────────── */}
+      <section className="py-24 px-6 border-y border-emerald-950/[0.06]">
+        <div className="max-w-7xl mx-auto text-center">
+          <Reveal>
+            <p className="text-emerald-950/40 font-semibold text-sm mb-8 tracking-[0.15em] uppercase">Seamless Integrations with your existing ERPs</p>
+            <div className="flex flex-wrap justify-center items-center gap-12 md:gap-20 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+              {/* Mock logos for ERPs/Systems using text for now to maintain styling */}
+              <div className="flex items-center gap-2 font-display text-2xl font-bold text-emerald-900"><div className="w-8 h-8 rounded bg-emerald-900 text-white flex items-center justify-center text-sm">S</div> SAP</div>
+              <div className="flex items-center gap-2 font-display text-2xl font-bold text-emerald-900"><div className="w-8 h-8 rounded bg-blue-900 text-white flex items-center justify-center text-sm">M</div> Marg ERP</div>
+              <div className="flex items-center gap-2 font-display text-2xl font-bold text-emerald-900"><div className="w-8 h-8 rounded bg-purple-900 text-white flex items-center justify-center text-sm">T</div> Tally Prime</div>
+              <div className="flex items-center gap-2 font-display text-2xl font-bold text-emerald-900"><div className="w-8 h-8 rounded bg-orange-600 text-white flex items-center justify-center text-sm">B</div> Busy</div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ─── Testimonials ───────────────────────────────────────────────── */}
       <section className="py-28 px-6 bg-emerald-50/40 relative overflow-hidden">
         <div className="absolute inset-0 dot-grid opacity-50 pointer-events-none" />

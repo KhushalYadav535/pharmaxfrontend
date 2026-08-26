@@ -29,7 +29,7 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
   });
   const { data: territoryList = [] } = useQuery({
     queryKey: ['territories'],
-    queryFn: () => api.get('/locations', { params: { limit: 100 } }).then(r => r.data.data.locations || [])
+    queryFn: () => api.get('/headquarters', { params: { limit: 100 } }).then(r => r.data.data.headquarters || [])
   });
   const { data: hospitalList = [] } = useQuery({
     queryKey: ['hospitals'],

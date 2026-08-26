@@ -9,7 +9,7 @@ import { INDIAN_STATES, INDIAN_STATES_AND_DISTRICTS } from '@/lib/constants';
 
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
 const MARITAL_STATUSES = ['UNMARRIED', 'MARRIED', 'SEPARATED', 'DIVORCED', 'WIDOWED'];
-const CATEGORIES = ['A', 'B', 'C', 'D'];
+const CATEGORIES = ['A', 'B', 'C', 'NOT_APPLICABLE'];
 const VISIT_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const RING = '#8b5cf633'; // Violet
 
@@ -23,7 +23,7 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
   });
   const { data: territoryList = [] } = useQuery({
     queryKey: ['territories'],
-    queryFn: () => api.get('/locations', { params: { limit: 100 } }).then(r => r.data.data.locations || [])
+    queryFn: () => api.get('/headquarters', { params: { limit: 100 } }).then(r => r.data.data.headquarters || [])
   });
   const { data: stockistList = [] } = useQuery({
     queryKey: ['stockists'],
