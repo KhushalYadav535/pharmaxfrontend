@@ -620,7 +620,7 @@ const Shader: React.FC<ShaderProps> = ({ source, uniforms, maxFps = 60 }) => {
 
 export function Footer({
   heading = {
-    line1: "Pharmax",
+    line1: "Field Pulse",
     line2: "Commercial",
     line3: "Excellence"
   },
@@ -645,7 +645,7 @@ export function Footer({
   ],
   companyDescription = "The AI-powered commercial excellence platform for pharmaceutical sales teams. Supercharge your MRs and accelerate your territory growth.",
   copyright = {
-    companyName: "Pharmax",
+    companyName: "Field Pulse",
     year: new Date().getFullYear(),
     additionalText: ""
   }
@@ -751,8 +751,9 @@ export function Footer({
           ))}
         </div>
 
-        <div className="py-6 min-[1250px]:py-8 text-center text-xs text-emerald-100/50">
+        <div className="py-6 min-[1250px]:py-8 text-center text-xs text-emerald-100/50 flex flex-col items-center gap-2">
           <p>{copyright.companyName} © {copyright.year} All rights reserved.</p>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
           {copyright.additionalText && <p className="mt-2">{copyright.additionalText}</p>}
         </div>
       </div>
