@@ -753,7 +753,10 @@ export function Footer({
 
         <div className="py-6 min-[1250px]:py-8 text-center text-xs text-emerald-100/50 flex flex-col items-center gap-2">
           <p>{copyright.companyName} © {copyright.year} All rights reserved.</p>
-          <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/delete-account" className="hover:text-white transition-colors">Delete Account</Link>
+          </div>
           {copyright.additionalText && <p className="mt-2">{copyright.additionalText}</p>}
         </div>
       </div>
