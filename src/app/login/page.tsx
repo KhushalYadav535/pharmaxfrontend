@@ -51,9 +51,9 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
-              <span className="text-white font-bold">Px</span>
+              <span className="text-white font-bold">FP</span>
             </div>
-            <span className="font-bold text-gray-900 text-xl">Pharmax</span>
+            <span className="font-bold text-gray-900 text-xl">Field Pulse</span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-gray-900">Welcome back</h1>
           <p className="mt-2 text-gray-500 text-sm">Sign in to your account to continue</p>

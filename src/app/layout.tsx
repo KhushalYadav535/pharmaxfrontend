@@ -7,11 +7,11 @@ import QueryProvider from '@/lib/query-provider';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Pharmax — Pharmaceutical Commercial Excellence Platform',
+  title: 'Field Pulse — Pharmaceutical Commercial Excellence Platform',
   description: 'AI-powered platform for pharmaceutical sales teams. Manage doctors, retailers, distributors, visits, and analytics — all in one place.',
   keywords: ['pharmaceutical', 'CRM', 'sales force automation', 'doctor engagement', 'medical representative'],
   openGraph: {
-    title: 'Pharmax',
+    title: 'Field Pulse',
     description: 'Pharmaceutical Commercial Excellence Platform',
     type: 'website',
   },

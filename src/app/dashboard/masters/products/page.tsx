@@ -5,20 +5,26 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
   Package, Plus, Search, Loader2, ChevronLeft, ChevronRight,
-  Pencil, Trash2, Layers, Thermometer, Box, FileText, Image as ImageIcon
+  Pencil, Trash2, Layers, Thermometer, Box, FileText, Image as ImageIcon,
+  Shield, Eye
 } from 'lucide-react';
 import ProductForm from '@/components/masters/ProductForm';
+import { useAuth } from '@/lib/auth-context';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function ProductMasterPage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const [search, setSearch]   = useState('');
   const [page, setPage]       = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editData, setEditData] = useState<any>(null);
+  const [viewProduct, setViewProduct] = useState<any>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+
 
   const { data, isLoading } = useQuery({
     queryKey: ['products', search, page],
@@ -58,19 +64,32 @@ export default function ProductMasterPage() {
         {/* ── Header ── */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Package className="w-6 h-6 text-blue-600" /> Product Master
-            </h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Package className="w-6 h-6 text-blue-600" /> Product Master
+              </h1>
+              {!isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                  <Shield className="w-3 h-3 text-blue-600" /> Read-Only
+                </span>
+              )}
+            </div>
             <p className="text-gray-500 text-sm mt-1">
-              Manage product catalog, compositions, and pricing
+              Browse product catalog, composition, packaging, and commercial specifications
             </p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Add Product
-          </button>
+          {isSuperAdmin ? (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add Product
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 text-xs font-medium px-3.5 py-2 rounded-xl border border-gray-200">
+              <Shield className="w-3.5 h-3.5" /> Read-Only Access
+            </span>
+          )}
         </div>
 
         {/* ── Stats ── */}
@@ -170,21 +189,32 @@ export default function ProductMasterPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        {isSuperAdmin ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setEditData(p)}
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Product"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p)}
+                              disabled={deleting === p.id}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Deactivate Product"
+                            >
+                              {deleting === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            onClick={() => setEditData(p)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            onClick={() => setViewProduct(p)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Eye className="w-3.5 h-3.5" /> View
                           </button>
-                          <button
-                            onClick={() => handleDelete(p)}
-                            disabled={deleting === p.id}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            {deleting === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                          </button>
-                        </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -219,6 +249,93 @@ export default function ProductMasterPage() {
           )}
         </div>
       </div>
+
+      {/* ── Read-Only Product Specification Modal ── */}
+      {viewProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-blue-600 p-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                <h3 className="font-bold text-base">Product Details</h3>
+                <span className="bg-white/20 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full">Read-Only</span>
+              </div>
+              <button
+                onClick={() => setViewProduct(null)}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div className="flex gap-4 items-center bg-gray-50 p-4 rounded-xl">
+                <div className="w-14 h-14 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+                  {viewProduct.productImage ? (
+                    <img src={viewProduct.productImage} alt={viewProduct.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Package className="w-7 h-7 text-blue-600" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-900 text-lg leading-snug">{viewProduct.name}</h4>
+                  <p className="text-xs text-blue-600 font-mono font-semibold">Code: {viewProduct.productCode}</p>
+                  {viewProduct.scientificName && (
+                    <p className="text-xs text-gray-500 italic mt-0.5">{viewProduct.scientificName}</p>
+                  )}
+                </div>
+              </div>
+
+              {viewProduct.composition && (
+                <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Composition</p>
+                  <p className="text-xs text-gray-700 leading-relaxed">{viewProduct.composition}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-gray-400 font-medium">Category</p>
+                  <p className="font-semibold text-gray-800 mt-0.5">{viewProduct.category || 'N/A'}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-gray-400 font-medium">Speciality</p>
+                  <p className="font-semibold text-blue-700 mt-0.5">{viewProduct.speciality || 'General'}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-gray-400 font-medium">Packaging Unit</p>
+                  <p className="font-semibold text-gray-800 mt-0.5">{viewProduct.unit || 'N/A'}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-gray-400 font-medium">Units in Pack</p>
+                  <p className="font-semibold text-gray-800 mt-0.5">{viewProduct.unitsInPackage || '1'}</p>
+                </div>
+                {viewProduct.storageTemp != null && (
+                  <div className="bg-gray-50 p-3 rounded-xl">
+                    <p className="text-gray-400 font-medium">Storage Temp</p>
+                    <p className="font-semibold text-gray-800 mt-0.5">{viewProduct.storageTemp}°C</p>
+                  </div>
+                )}
+                {viewProduct.mrp != null && (
+                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                    <p className="text-emerald-700 font-medium">MRP</p>
+                    <p className="font-bold text-emerald-900 mt-0.5">₹{viewProduct.mrp}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setViewProduct(null)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded-xl transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

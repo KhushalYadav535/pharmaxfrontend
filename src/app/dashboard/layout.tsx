@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import Sidebar from '@/components/layout/Sidebar';
 import Topbar from '@/components/layout/Topbar';
@@ -10,7 +10,11 @@ import { Loader2 } from 'lucide-react';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Whether we're on the main Day Dashboard page
+  const isDayDashboard = pathname === '/dashboard';
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -37,9 +41,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
       <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
-      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
-        <Topbar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
-        <main className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Show generic topbar only on non-day-dashboard pages */}
+        {!isDayDashboard && (
+          <Topbar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
+        )}
+        <main className={`flex-1 overflow-y-auto ${isDayDashboard ? '' : 'p-6'}`}>
           {children}
         </main>
       </div>

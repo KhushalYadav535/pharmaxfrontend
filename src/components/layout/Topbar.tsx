@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useState } from 'react';
 import { Bell, Search, Settings, Menu } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
@@ -34,10 +36,10 @@ export default function Topbar({ collapsed, setCollapsed }: { collapsed: boolean
 
       <div className="ml-auto flex items-center gap-2">
         {/* Notifications */}
-        <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
+        <Link href="/dashboard/notifications" className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-colors block">
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full" />
-        </button>
+        </Link>
 
         {/* Settings */}
         <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
@@ -46,15 +48,15 @@ export default function Topbar({ collapsed, setCollapsed }: { collapsed: boolean
 
         {/* Profile */}
         {user && (
-          <div className="flex items-center gap-2.5 pl-2 ml-1 border-l border-gray-100">
+          <Link href="/dashboard/profile" className="flex items-center gap-2.5 pl-2 ml-1 border-l border-gray-100 group">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-gray-900 leading-tight">{user.firstName} {user.lastName}</p>
+              <p className="text-sm font-semibold text-gray-900 leading-tight group-hover:text-emerald-600 transition-colors">{user.firstName} {user.lastName}</p>
               <p className="text-xs text-gray-500">{formatRole(user.role)}</p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold cursor-pointer">
+            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:bg-emerald-700 transition-colors">
               {getInitials(user.firstName, user.lastName)}
             </div>
-          </div>
+          </Link>
         )}
       </div>
     </header>

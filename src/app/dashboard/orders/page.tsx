@@ -175,12 +175,22 @@ export default function OrdersPage() {
                         <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
                             
-                            {/* Quick Approval for Managers */}
-                            {isAdminOrManager && o.status === 'PENDING' && (
-                              <button onClick={() => handleStatusUpdate(o, 'CONFIRMED')} disabled={processing === o.id + 'CONFIRMED'} className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition-colors">
-                                {processing === o.id + 'CONFIRMED' ? '...' : 'Confirm'}
-                              </button>
-                            )}
+                            {/* Status Change for Admins/Managers */}
+                            {isAdminOrManager ? (
+                              <select
+                                value={o.status}
+                                onChange={(e) => handleStatusUpdate(o, e.target.value)}
+                                disabled={processing?.startsWith(o.id)}
+                                className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-2 py-1 rounded-lg border border-slate-200 cursor-pointer focus:outline-none"
+                              >
+                                <option value="PENDING">PENDING</option>
+                                <option value="APPROVED">APPROVED</option>
+                                <option value="CONFIRMED">CONFIRMED</option>
+                                <option value="SHIPPED">SHIPPED</option>
+                                <option value="DELIVERED">DELIVERED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                              </select>
+                            ) : null}
 
                             <button onClick={() => handleDelete(o)} disabled={processing === o.id} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Delete">
                               {processing === o.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}

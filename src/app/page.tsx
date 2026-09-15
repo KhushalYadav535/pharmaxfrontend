@@ -10,7 +10,7 @@ import {
 import { Footer } from "@/components/ui/animated-footer";
 
 /* ============================================================================
-   PHARMAX — Premium White & Forest-Green Landing Page (Cinematic Edition)
+   FIELD PULSE — Premium White & Forest-Green Landing Page (Cinematic Edition)
    Signature element: an animated "pulse line" (EKG → sales chart) that ties
    the pharma "vitals" idea to the sales-growth story. It now also traces a
    living aurora field behind the page, and reacts to cursor + scroll, so the
@@ -229,9 +229,9 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5 group cursor-default">
             <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 via-emerald-600 to-[#0B3B2E] rounded-lg flex items-center justify-center shadow-md shadow-emerald-900/25 transition-transform duration-300 group-hover:rotate-[8deg] group-hover:scale-105">
-              <span className="text-white font-bold text-sm font-display">Px</span>
+              <span className="text-white font-bold text-sm font-display">FP</span>
             </div>
-            <span className="font-bold text-[#0B3B2E] text-lg font-display tracking-tight">Pharmax</span>
+            <span className="font-bold text-[#0B3B2E] text-lg font-display tracking-tight">Field Pulse</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             {['Features', 'How it works', 'AI Features', 'Pricing'].map((item) => (
@@ -324,13 +324,13 @@ export default function LandingPage() {
                     <div className="w-3 h-3 rounded-full bg-amber-400/70" />
                     <div className="w-3 h-3 rounded-full bg-emerald-500" />
                     <div className="flex-1 mx-4 bg-white rounded-lg text-xs text-emerald-950/35 px-3 py-1 text-center border border-emerald-950/[0.04]">
-                      app.pharmax.com/dashboard
+                      app.fieldpulse.com/dashboard
                     </div>
                   </div>
                   <div className="flex" style={{ height: '380px' }}>
                     <div className="w-14 bg-white border-r border-emerald-950/[0.06] flex flex-col items-center py-4 gap-4">
                       <div className="w-7 h-7 bg-[#0B3B2E] rounded-lg flex items-center justify-center">
-                        <span className="text-white text-xs font-bold font-display">Px</span>
+                        <span className="text-white text-xs font-bold font-display">FP</span>
                       </div>
                       {[BarChart3, Users, MapPin, FileText, Brain].map((Icon, i) => (
                         <div key={i} className={`p-2 rounded-lg transition-colors ${i === 0 ? 'bg-emerald-50' : 'hover:bg-emerald-50/60'}`}>
@@ -524,7 +524,7 @@ export default function LandingPage() {
                 <p className="text-emerald-600 font-semibold text-sm mb-3 tracking-[0.1em] uppercase">AI Features</p>
                 <h2 className="text-4xl font-display font-bold text-[#0B1F16] mb-6">Your AI sales co-pilot</h2>
                 <p className="text-emerald-950/50 text-lg leading-relaxed mb-8">
-                  Pharmax AI does the heavy lifting — transcribes voice notes, writes visit reports, suggests the next best action, and gives managers a real-time coaching dashboard.
+                  Field Pulse AI does the heavy lifting — transcribes voice notes, writes visit reports, suggests the next best action, and gives managers a real-time coaching dashboard.
                 </p>
                 <div className="space-y-5">
                   {[
@@ -601,7 +601,7 @@ export default function LandingPage() {
             <div className="text-center mb-16">
               <p className="text-emerald-400 font-semibold text-sm mb-3 tracking-[0.1em] uppercase">Unified Ecosystem</p>
               <h2 className="text-4xl font-display font-bold">Built for every role in pharma</h2>
-              <p className="mt-4 text-lg text-emerald-100/60 max-w-2xl mx-auto">From the medical representative in the field to the national sales head, Pharmax provides specialized tools for everyone.</p>
+              <p className="mt-4 text-lg text-emerald-100/60 max-w-2xl mx-auto">From the medical representative in the field to the national sales head, Field Pulse provides specialized tools for everyone.</p>
             </div>
           </Reveal>
 
@@ -659,7 +659,7 @@ export default function LandingPage() {
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { quote: 'Pharmax transformed how our 200+ MR team operates. Visit compliance went from 62% to 91% in just 3 months.', author: 'Rajesh Kumar', role: 'National Sales Manager', company: 'Sun Pharmaceuticals' },
+              { quote: 'Field Pulse transformed how our 200+ MR team operates. Visit compliance went from 62% to 91% in just 3 months.', author: 'Rajesh Kumar', role: 'National Sales Manager', company: 'Sun Pharmaceuticals' },
               { quote: 'The AI copilot is incredible. Our managers now spend 80% less time on reporting and 80% more on actual coaching.', author: 'Priya Mehta', role: 'VP Sales', company: 'Cipla' },
               { quote: "Best pharma CRM we've used. The territory analytics and doctor coverage reports are exactly what we needed.", author: 'Arun Patel', role: 'Regional Manager', company: "Dr. Reddy's Labs" },
             ].map(({ quote, author, role, company }, i) => (
@@ -697,7 +697,7 @@ export default function LandingPage() {
               <div className="relative">
                 <h2 className="text-4xl font-display font-bold mb-4">Ready to transform your sales force?</h2>
                 <p className="text-emerald-100/70 text-lg mb-8 max-w-2xl mx-auto">
-                  Join 500+ pharma companies using Pharmax to increase visit efficiency, doctor engagement, and territory coverage.
+                  Join 500+ pharma companies using Field Pulse to increase visit efficiency, doctor engagement, and territory coverage.
                 </p>
                 <div className="flex items-center justify-center gap-4 flex-wrap">
                   <Magnetic>
@@ -706,7 +706,7 @@ export default function LandingPage() {
                     </Link>
                   </Magnetic>
                   <Magnetic>
-                    <a href="mailto:sales@pharmax.com" className="flex items-center gap-2 bg-white/10 text-white font-semibold px-8 py-4 rounded-xl hover:bg-white/20 transition-all text-sm border border-white/15">
+                    <a href="mailto:sales@fieldpulse.com" className="flex items-center gap-2 bg-white/10 text-white font-semibold px-8 py-4 rounded-xl hover:bg-white/20 transition-all text-sm border border-white/15">
                       <Mail className="w-4 h-4" /> Contact Sales
                     </a>
                   </Magnetic>
