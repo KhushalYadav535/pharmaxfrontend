@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { formatDate, VISIT_STATUS_COLORS, APPROVAL_STATUS_COLORS } from '@/lib/utils';
 import {
   ClipboardList, Plus, MapPin, Loader2, X, CheckCircle, Users,
-  Store, Truck, Building2, Mic, Camera, AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon
+  Store, Truck, Building2, Mic, Camera, AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Route
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
@@ -179,6 +179,13 @@ export default function VisitsPage() {
           >
             <CalendarIcon className="w-3.5 h-3.5" />
             Field Calendar
+          </Link>
+          <Link
+            href="/dashboard/visits/route-audit"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors shadow-2xs"
+          >
+            <Route className="w-3.5 h-3.5 text-emerald-600" />
+            Route Audit
           </Link>
           <button onClick={() => { setShowForm(true); setForm(f => ({ ...f, visitType: activeTab })); }} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
             <Plus className="w-4 h-4" /> Plan Visit
