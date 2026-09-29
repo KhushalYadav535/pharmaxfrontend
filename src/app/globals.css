@@ -1,9 +1,20 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
+
 :root {
   --font-inter: 'Inter', system-ui, sans-serif;
   --color-primary: #0B6E4F;
   --color-primary-light: #E8F5F1;
+
+  /* ── Awwwards light system ───────────────────────── */
+  --ink: #0c1f16;
+  --ink-2: #0b3b2e;
+  --bone: #f4f2ea;
+  --paper: #fbfaf5;
+  --acid: #d9ff3d;
+  --mint: #6ee7b7;
+  --emerald: #0e9f6e;
+  --forest: #0b3b2e;
 }
 
 * {
@@ -11,31 +22,47 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+}
+
+/* ── Lenis smooth-scroll required styles ── */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
 }
 
 body {
   font-family: var(--font-inter);
-  background-color: #FFFFFF;
-  color: #111827;
+  background-color: var(--bone);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #e9e6d8;
 }
 ::-webkit-scrollbar-thumb {
-  background: #E5E7EB;
+  background: #0b3b2e;
   border-radius: 99px;
+  border: 2px solid #e9e6d8;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #D1D5DB;
+  background: #0e9f6e;
 }
 
 /* Smooth transitions everywhere */
@@ -45,7 +72,212 @@ body {
 
 /* Focus ring */
 *:focus-visible {
-  outline: 2px solid #059669;
-  outline-offset: 2px;
+  outline: 2px solid #0b3b2e;
+  outline-offset: 3px;
   border-radius: 4px;
+}
+
+::selection {
+  background: #0b3b2e;
+  color: #f4f2ea;
+}
+
+/* ── Display type ─────────────────────────────────── */
+.font-display {
+  font-family: var(--font-display), 'Arial Black', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+.font-grot {
+  font-family: var(--font-grot), 'Inter', system-ui, sans-serif;
+}
+.font-jbmono {
+  font-family: var(--font-jbmono), ui-monospace, monospace;
+}
+
+/* Outlined ghost type */
+.text-stroke {
+  -webkit-text-stroke: 1.5px rgba(12, 31, 22, 0.55);
+  color: transparent;
+}
+.text-stroke-ink {
+  -webkit-text-stroke: 1.5px rgba(12, 31, 22, 0.6);
+  color: transparent;
+}
+.text-stroke-paper {
+  -webkit-text-stroke: 1.5px rgba(244, 242, 234, 0.6);
+  color: transparent;
+}
+.text-stroke-acid {
+  -webkit-text-stroke: 1.5px rgba(11, 59, 46, 0.7);
+  color: transparent;
+}
+@media (min-width: 768px) {
+  .text-stroke, .text-stroke-ink, .text-stroke-paper, .text-stroke-acid {
+    -webkit-text-stroke-width: 2px;
+  }
+}
+
+/* ── Film grain ───────────────────────────────────── */
+.noise-overlay {
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-shift 0.9s steps(4) infinite;
+}
+@keyframes grain-shift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-2%, 1.5%); }
+  50% { transform: translate(1.5%, -2%); }
+  75% { transform: translate(-1%, -1%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* ── Marquee ──────────────────────────────────────── */
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee-x var(--marquee-speed, 28s) linear infinite;
+  will-change: transform;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+@keyframes marquee-x-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+.marquee-rev {
+  animation: marquee-x-reverse var(--marquee-speed, 28s) linear infinite;
+}
+
+/* ── Custom cursor (white + difference = visible on cream AND forest) ── */
+@media (hover: hover) and (pointer: fine) {
+  .cursor-none-fine, .cursor-none-fine a, .cursor-none-fine button {
+    cursor: none;
+  }
+}
+#awww-cursor-dot, #awww-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 200;
+  border-radius: 9999px;
+}
+#awww-cursor-dot {
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  mix-blend-mode: difference;
+}
+#awww-cursor-ring {
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  mix-blend-mode: difference;
+}
+#awww-cursor-ring .cursor-label {
+  font-family: var(--font-jbmono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #fff;
+  opacity: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (hover: none), (pointer: coarse) {
+  #awww-cursor-dot, #awww-cursor-ring {
+    display: none;
+  }
+}
+
+/* ── Misc awwwards bits ───────────────────────────── */
+.dot-grid-dark {
+  background-image: radial-gradient(rgba(11, 59, 46, 0.12) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+.dot-grid-light {
+  background-image: radial-gradient(rgba(12, 31, 22, 0.1) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+.spin-slow {
+  animation: spin 14s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.float-y {
+  animation: floatY 5s ease-in-out infinite;
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* link underline sweep */
+.u-sweep {
+  position: relative;
+}
+.u-sweep::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.u-sweep:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* card spotlight — soft forest glow on light cards */
+.spotlight-card {
+  position: relative;
+}
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(14, 159, 110, 0.12), transparent 70%);
+}
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* soft paper card shadow */
+.paper-card {
+  box-shadow: 0 1px 2px rgba(12, 31, 22, 0.05), 0 12px 32px -16px rgba(11, 59, 46, 0.18);
+}
+
+/* vertical text */
+.vertical-rl {
+  writing-mode: vertical-rl;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track, .marquee-rev, .spin-slow, .float-y, .noise-overlay {
+    animation: none !important;
+  }
 }

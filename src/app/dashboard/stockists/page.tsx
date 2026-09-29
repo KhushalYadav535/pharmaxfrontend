@@ -82,7 +82,9 @@ export default function StockistsPage() {
                 data?.stockists?.map((stockist: any) => (
                   <tr key={stockist.id} className="hover:bg-cyan-50/30 transition-colors">
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-gray-900">{stockist.name}</div>
+                      <Link href={`/dashboard/stockists/${stockist.id}`} className="font-bold text-gray-900 hover:text-cyan-600 hover:underline">
+                        {stockist.name}
+                      </Link>
                       <div className="text-xs text-gray-500 mt-0.5">{stockist.stockistCode}</div>
                     </td>
                     <td className="px-5 py-4">

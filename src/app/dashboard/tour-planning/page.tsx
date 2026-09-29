@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Calendar, Plus, Loader2, Pencil, Trash2, MapPin, CheckCircle, XCircle, Clock, Users, ArrowRight } from 'lucide-react';
+import { Calendar, Plus, Loader2, Pencil, Trash2, MapPin, CheckCircle, XCircle, Clock, Users, ArrowRight, Eye } from 'lucide-react';
+import Link from 'next/link';
 import TourPlanForm from '@/components/operations/TourPlanForm';
 import { useAuth } from '@/lib/auth-context';
 
@@ -127,20 +128,24 @@ export default function TourPlanningPage() {
                   plans.map((t: any) => (
                     <tr key={t.id} className="hover:bg-amber-50/20 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="font-bold text-gray-900">{t.user?.firstName} {t.user?.lastName}</p>
-                        <p className="text-xs text-gray-500">Code: {t.user?.employeeCode}</p>
+                        <Link href={`/dashboard/tour-planning/${t.id}`} className="font-bold text-gray-900 hover:text-amber-600 transition-colors">
+                          {t.user?.firstName} {t.user?.lastName}
+                        </Link>
+                        <p className="text-xs text-gray-500">Code: {t.user?.employeeCode || t.userId?.slice(-6)}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5 text-gray-700 font-medium text-xs">
-                          {new Date(t.tourFromDate).toLocaleDateString('en-GB')}
-                          {t.tourToDate && (
-                            <>
-                              <ArrowRight className="w-3 h-3 text-gray-400 mx-1" />
-                              {new Date(t.tourToDate).toLocaleDateString('en-GB')}
-                            </>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-gray-500 mt-1 max-w-[150px] truncate" title={t.tourPurpose}>{t.tourPurpose}</p>
+                        <Link href={`/dashboard/tour-planning/${t.id}`} className="block">
+                          <div className="flex items-center gap-1.5 text-gray-700 font-medium text-xs">
+                            {new Date(t.tourFromDate).toLocaleDateString('en-GB')}
+                            {t.tourToDate && (
+                              <>
+                                <ArrowRight className="w-3 h-3 text-gray-400 mx-1" />
+                                {new Date(t.tourToDate).toLocaleDateString('en-GB')}
+                              </>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-1 max-w-[150px] truncate" title={t.tourPurpose}>{t.tourPurpose}</p>
+                        </Link>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-start gap-2">
@@ -170,6 +175,14 @@ export default function TourPlanningPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           
+                          <Link
+                            href={`/dashboard/tour-planning/${t.id}`}
+                            className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Inspect MTP Dossier"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+
                           {/* Approval Actions for Managers */}
                           {isAdminOrManager && t.approvalStatus === 'PENDING' && (
                             <>

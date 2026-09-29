@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { ShoppingCart, Plus, Loader2, Pencil, Trash2, Calendar, ChevronDown, ChevronUp, Store, Truck, Package, CheckCircle, Clock, Truck as DeliveryTruck, XCircle } from 'lucide-react';
 import OrderForm from '@/components/operations/OrderForm';
 import { useAuth } from '@/lib/auth-context';
+import Link from 'next/link';
 
 export default function OrdersPage() {
   const qc = useQueryClient();
@@ -92,12 +93,14 @@ export default function OrdersPage() {
               Create and manage product orders from Retailers and Distributors.
             </p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" /> Create Order
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/orders/new"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-2xs"
+            >
+              <Plus className="w-4 h-4" /> Book New Order
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}
@@ -146,7 +149,13 @@ export default function OrdersPage() {
                           <div className="flex items-center gap-2">
                             {expandedRow === o.id ? <ChevronUp className="w-4 h-4 text-blue-500" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                             <div>
-                              <p className="font-bold text-blue-700">{o.orderNumber}</p>
+                              <Link
+                                href={`/dashboard/orders/${o.id}`}
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                className="font-bold text-blue-700 hover:underline flex items-center gap-1"
+                              >
+                                <span>{o.orderNumber || `ORD-${o.id.slice(-6)}`}</span>
+                              </Link>
                               <p className="text-[10px] text-gray-500">By: {o.user?.firstName} {o.user?.lastName}</p>
                             </div>
                           </div>
@@ -172,9 +181,16 @@ export default function OrdersPage() {
                         <td className="px-6 py-4">
                           {getStatusBadge(o.status)}
                         </td>
-                        <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
+                        <td className="px-6 py-4 text-right" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
                             
+                            <Link
+                              href={`/dashboard/orders/${o.id}`}
+                              className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              Invoice
+                            </Link>
+
                             {/* Status Change for Admins/Managers */}
                             {isAdminOrManager ? (
                               <select

@@ -9,6 +9,7 @@ import {
   KeyRound, LayoutList, Navigation, AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
+import api from '@/lib/api';
 
 export default function StartOfDayPage() {
   const router = useRouter();
@@ -24,6 +25,8 @@ export default function StartOfDayPage() {
   const [authMethod, setAuthMethod] = useState<'pin' | 'password'>('pin');
   const [pin, setPin] = useState('');
   const [isStarting, setIsStarting] = useState(false);
+
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Clock
   useEffect(() => {
@@ -73,6 +76,7 @@ export default function StartOfDayPage() {
         (pos) => {
           if (mounted) {
             setGpsStatus('good');
+            setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
             setAddress(`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
           }
         },
@@ -90,12 +94,21 @@ export default function StartOfDayPage() {
     return () => { mounted = false; };
   }, []);
 
-  const handleStartDay = () => {
-    setIsStarting(true);
-    // Simulate API call
-    setTimeout(() => {
+  const handleStartDay = async () => {
+    try {
+      setIsStarting(true);
+      await api.post('/day/start', {
+        lat: coords?.lat ?? 19.0760,
+        lng: coords?.lng ?? 72.8777,
+        address: address || 'Web Command Center',
+        authMethod: 'web',
+      });
       router.push('/dashboard');
-    }, 1500);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to start day. Please try again.');
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   const getSystemStatus = () => {

@@ -113,7 +113,7 @@ export default function TrainingPage() {
             const latestAttempt = module.attempts?.[0];
             const isPassed = latestAttempt?.passed;
             return (
-              <div key={module.id} onClick={() => openModule(module)} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
+              <Link key={module.id} href={`/dashboard/training/${module.id}`} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group block">
                 <div className="flex items-start gap-3 mb-4">
                   <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-2xl flex-shrink-0">
                     {CONTENT_TYPE_ICONS[module.contentType] || '📚'}
@@ -163,7 +163,7 @@ export default function TrainingPage() {
                     </div>
                   </div>
                 )}
-              </div>
+              </Link>
             );
           })}
         </div>

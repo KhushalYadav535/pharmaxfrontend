@@ -1,14 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import { Package, Plus, Loader2, X, TrendingDown } from 'lucide-react';
-import { useState } from 'react';
+import {
+  Package, Plus, Loader2, X, TrendingDown, Stethoscope, Users,
+  Search, Filter, ShieldCheck, Pill, ArrowRight, Layers, FileSpreadsheet
+} from 'lucide-react';
 
 export default function SamplesPage() {
+  const [activeTab, setActiveTab] = useState<'distributions' | 'products' | 'rep-allocations'>('distributions');
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState('');
   const qc = useQueryClient();
 
   const { data: products } = useQuery({
@@ -22,8 +28,13 @@ export default function SamplesPage() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sample-distributions', page],
-    queryFn: () => api.get('/samples/distributions', { params: { page, limit: 15 } }).then((r) => r.data.data),
+    queryKey: ['sample-distributions', page, selectedProduct],
+    queryFn: () =>
+      api
+        .get('/samples/distributions', {
+          params: { page, limit: 15, sampleProductId: selectedProduct || undefined },
+        })
+        .then((r) => r.data.data),
     placeholderData: (prev) => prev,
   });
 
@@ -40,153 +51,356 @@ export default function SamplesPage() {
       qc.invalidateQueries({ queryKey: ['sample-distributions'] });
       qc.invalidateQueries({ queryKey: ['sample-stats'] });
       setShowForm(false);
+      setForm({ doctorId: '', sampleProductId: '', quantity: '1', notes: '' });
     },
   });
 
+  const distributionsList = data?.distributions || [];
+
+  // Group distributions by MR
+  const repAllocations = distributionsList.reduce((acc: any, dist: any) => {
+    const repName = dist.user ? `${dist.user.firstName} ${dist.user.lastName}` : 'Unassigned Rep';
+    if (!acc[repName]) {
+      acc[repName] = { repName, totalUnits: 0, callCount: 0, products: {} };
+    }
+    acc[repName].totalUnits += dist.quantity || 0;
+    acc[repName].callCount += 1;
+    const pName = dist.sampleProduct?.name || 'Sample';
+    acc[repName].products[pName] = (acc[repName].products[pName] || 0) + (dist.quantity || 0);
+    return acc;
+  }, {});
+
+  const repList = Object.values(repAllocations);
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto space-y-6 pb-16">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-6 h-6 text-emerald-600" /> Samples
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Package className="w-6 h-6 text-emerald-600" /> Physician Samples & Allocation Ledger
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Manage sample distributions to doctors</p>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Audit physician sample inventories, doctor distribution compliance, and MR allocations
+          </p>
         </div>
-        <button onClick={() => setShowForm(true)} id="distribute-sample-btn" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
-          <Plus className="w-4 h-4" /> Distribute Sample
+        <button
+          onClick={() => setShowForm(true)}
+          id="distribute-sample-btn"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" /> Issue Sample to Doctor
         </button>
       </div>
 
-      {/* Stats */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-          <TrendingDown className="w-5 h-5 text-emerald-600 mb-2" />
-          <p className="text-2xl font-bold text-gray-900">{stats?.totalDistributions || 0}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Total Distributions</p>
+        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Sample Distributions</span>
+          <p className="text-2xl font-black text-slate-900 mt-1">{stats?.totalDistributions || 0}</p>
+          <p className="text-xs text-slate-500 mt-0.5">Total doctor sampling calls</p>
         </div>
-        {stats?.topProducts?.slice(0, 3).map((prod: any) => (
-          <div key={prod.productName} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-            <p className="text-xs text-gray-500 truncate mb-1">{prod.productName}</p>
-            <p className="text-2xl font-bold text-gray-900">{prod.quantity}</p>
-            <p className="text-xs text-gray-400">{prod.count} distributions</p>
+
+        <div className="bg-white rounded-3xl border border-emerald-100 p-5 shadow-sm bg-gradient-to-br from-emerald-50/40 to-white">
+          <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">Active Sample SKUs</span>
+          <p className="text-2xl font-black text-emerald-700 mt-1">{products?.length || 0}</p>
+          <p className="text-xs text-emerald-600 mt-0.5">Physician sample brands</p>
+        </div>
+
+        {stats?.topProducts?.slice(0, 2).map((prod: any, idx: number) => (
+          <div key={prod.productName || idx} className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate block">
+              Top Sample #{idx + 1}
+            </span>
+            <p className="text-lg font-black text-slate-900 mt-1 truncate">{prod.productName}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{prod.quantity} units distributed</p>
           </div>
         ))}
       </div>
 
-      {/* Top Products Bar */}
-      {stats?.topProducts?.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-          <h2 className="font-semibold text-gray-900 mb-4">Top Products by Quantity</h2>
-          <div className="space-y-3">
-            {stats.topProducts.map((prod: any, i: number) => {
-              const maxQty = stats.topProducts[0]?.quantity || 1;
-              return (
-                <div key={prod.productName} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-500 w-6 text-right">{i + 1}</span>
-                  <div className="flex-1">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900">{prod.productName}</span>
-                      <span className="text-sm font-bold text-gray-700">{prod.quantity} units</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full">
-                      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(prod.quantity / maxQty) * 100}%` }} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* Tab Switcher */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-1.5 flex gap-1 shadow-2xs w-full sm:w-fit">
+        <button
+          onClick={() => setActiveTab('distributions')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'distributions' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Stethoscope className="w-4 h-4" /> Doctor Sampling Ledger
+        </button>
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'products' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Pill className="w-4 h-4" /> Sample SKUs Catalog
+        </button>
+        <button
+          onClick={() => setActiveTab('rep-allocations')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'rep-allocations' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Users className="w-4 h-4" /> Rep-Wise Sampling
+        </button>
+      </div>
+
+      {/* TAB 1: Distribution History */}
+      {activeTab === 'distributions' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="font-bold text-slate-900 text-sm">Doctor Sampling Audit History</h2>
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
+              >
+                <option value="">All Sample Products</option>
+                {products?.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="text-left px-5 py-3.5">Sample Product</th>
+                  <th className="text-left px-5 py-3.5">Doctor & Specialty</th>
+                  <th className="text-left px-5 py-3.5">Quantity Distributed</th>
+                  <th className="text-left px-5 py-3.5">Distributed By (MR)</th>
+                  <th className="text-left px-5 py-3.5">Date & Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {isLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={5} className="px-5 py-4">
+                        <div className="h-5 bg-slate-100 rounded-xl animate-pulse" />
+                      </td>
+                    </tr>
+                  ))
+                ) : distributionsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-16 text-slate-400">
+                      <Package className="w-10 h-10 mx-auto mb-2 opacity-30 text-slate-400" />
+                      <p className="font-bold text-slate-700">No sample distributions recorded</p>
+                      <p className="text-xs text-slate-400 mt-1">Issue samples directly using the button above</p>
+                    </td>
+                  </tr>
+                ) : (
+                  distributionsList.map((dist: any) => (
+                    <tr key={dist.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-5 py-4">
+                        <p className="font-bold text-slate-900 text-xs sm:text-sm">{dist.sampleProduct?.name}</p>
+                        <span className="text-[10px] text-slate-400 font-medium">{dist.sampleProduct?.category || 'Standard Sample'}</span>
+                      </td>
+
+                      <td className="px-5 py-4 font-semibold text-slate-800">
+                        {dist.doctor ? (
+                          <div>
+                            <p className="text-xs font-bold text-slate-900">Dr. {dist.doctor.firstName} {dist.doctor.lastName}</p>
+                            <span className="text-[10px] text-slate-500">{dist.doctor.specialty || 'General Practitioner'}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Direct Sampling</span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-black text-xs border border-emerald-200">
+                          {dist.quantity} units
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4 font-semibold text-slate-700 text-xs">
+                        {dist.user ? `${dist.user.firstName} ${dist.user.lastName}` : 'System Admin'}
+                      </td>
+
+                      <td className="px-5 py-4 text-xs text-slate-500 font-medium">
+                        {formatDate(dist.distributedAt)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* Distribution Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-        <div className="px-5 py-3.5 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Distribution History</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                {['Product', 'Doctor', 'Quantity', 'Distributed By', 'Date'].map((h) => (
-                  <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>{Array.from({ length: 5 }).map((_, j) => <td key={j} className="px-5 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>)}</tr>
-                ))
-              ) : data?.distributions?.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-gray-400">
-                  <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p>No sample distributions yet</p>
-                </td></tr>
-              ) : data?.distributions?.map((dist: any) => (
-                <tr key={dist.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-4">
-                    <p className="font-medium text-gray-900">{dist.sampleProduct?.name}</p>
-                    <p className="text-xs text-gray-400">{dist.sampleProduct?.category}</p>
-                  </td>
-                  <td className="px-5 py-4 text-gray-700">Dr. {dist.doctor?.firstName} {dist.doctor?.lastName}</td>
-                  <td className="px-5 py-4">
-                    <span className="font-semibold text-gray-900">{dist.quantity}</span>
-                    <span className="text-xs text-gray-400 ml-1">units</span>
-                  </td>
-                  <td className="px-5 py-4 text-gray-600 text-xs">{dist.user?.firstName} {dist.user?.lastName}</td>
-                  <td className="px-5 py-4 text-gray-500 text-xs">{formatDate(dist.distributedAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {data?.totalPages > 1 && (
-          <div className="border-t border-gray-100 px-5 py-3 flex items-center justify-between text-sm">
-            <p className="text-gray-500">Page {page} of {data.totalPages}</p>
-            <div className="flex gap-2">
-              <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">Prev</button>
-              <button disabled={page === data.totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">Next</button>
+      {/* TAB 2: Sample Products Catalog */}
+      {activeTab === 'products' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {products?.map((prod: any) => (
+            <div key={prod.id} className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3">
+              <div className="flex items-start justify-between">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                  <Pill className="w-5 h-5" />
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Active Sample
+                </span>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">{prod.name}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{prod.category || 'Pharmaceutical'}</p>
+              </div>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-400 font-medium">Pack Specification</span>
+                <span className="font-bold text-slate-700">{prod.packSize || 'Complimentary Trial Pack'}</span>
+              </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* TAB 3: Rep-Wise Sampling */}
+      {activeTab === 'rep-allocations' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-slate-100">
+            <h2 className="font-bold text-slate-900 text-sm">MR Field Sampling Breakdown</h2>
           </div>
-        )}
-      </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="text-left px-5 py-3.5">Representative</th>
+                  <th className="text-left px-5 py-3.5">Total Sampling Calls</th>
+                  <th className="text-left px-5 py-3.5">Total Units Distributed</th>
+                  <th className="text-left px-5 py-3.5">Top Distributed Sample Brands</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {repList.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-12 text-slate-400 text-xs">
+                      No representative distributions found.
+                    </td>
+                  </tr>
+                ) : (
+                  repList.map((r: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-5 py-4 font-bold text-slate-900">{r.repName}</td>
+                      <td className="px-5 py-4 font-semibold text-slate-700">{r.callCount} calls</td>
+                      <td className="px-5 py-4">
+                        <span className="font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                          {r.totalUnits} units
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(r.products).map(([name, qty]: any) => (
+                            <span key={name} className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                              {name}: {qty}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Distribute Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900 text-lg">Distribute Sample</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-500" /></button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md border border-slate-100">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <h2 className="font-bold text-slate-900 text-base">Issue Physician Sample</h2>
+              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
             </div>
-            <form onSubmit={(e) => { e.preventDefault(); distributeMutation.mutate({ ...form, quantity: parseInt(form.quantity) }); }} className="p-6 space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                distributeMutation.mutate({ ...form, quantity: parseInt(form.quantity) });
+              }}
+              className="p-6 space-y-4"
+            >
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Doctor *</label>
-                <select required value={form.doctorId} onChange={(e) => setForm(f => ({ ...f, doctorId: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white">
-                  <option value="">Select doctor...</option>
-                  {doctors?.map((d: any) => <option key={d.id} value={d.id}>Dr. {d.firstName} {d.lastName} — {d.specialty}</option>)}
+                <label className="block text-xs font-bold text-slate-700 mb-1">Select Doctor *</label>
+                <select
+                  required
+                  value={form.doctorId}
+                  onChange={(e) => setForm((f) => ({ ...f, doctorId: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white"
+                >
+                  <option value="">Select target doctor...</option>
+                  {doctors?.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      Dr. {d.firstName} {d.lastName} — {d.specialty}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Product *</label>
-                <select required value={form.sampleProductId} onChange={(e) => setForm(f => ({ ...f, sampleProductId: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white">
-                  <option value="">Select product...</option>
-                  {products?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <label className="block text-xs font-bold text-slate-700 mb-1">Sample Medicine SKU *</label>
+                <select
+                  required
+                  value={form.sampleProductId}
+                  onChange={(e) => setForm((f) => ({ ...f, sampleProductId: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white"
+                >
+                  <option value="">Select sample brand...</option>
+                  {products?.map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.category || 'Pharma'})
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Quantity *</label>
-                <input required type="number" min={1} value={form.quantity} onChange={(e) => setForm(f => ({ ...f, quantity: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                <label className="block text-xs font-bold text-slate-700 mb-1">Quantity (Units) *</label>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  value={form.quantity}
+                  onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
               </div>
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+                <label className="block text-xs font-bold text-slate-700 mb-1">Audit Notes / Discussion Feedback</label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="Physician feedback, batch remarks or compliance note..."
+                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none"
+                />
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
-                <button type="submit" disabled={distributeMutation.isPending} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl disabled:opacity-60">
-                  {distributeMutation.isPending ? <><Loader2 className="w-4 h-4 animate-spin" />Distributing...</> : 'Distribute'}
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 px-4 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={distributeMutation.isPending}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl disabled:opacity-60 shadow-sm"
+                >
+                  {distributeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Allocation'}
                 </button>
               </div>
             </form>

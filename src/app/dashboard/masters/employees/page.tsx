@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
   Users, Plus, Search, Loader2, ChevronLeft, ChevronRight,
   CheckCircle2, XCircle, Pencil, PowerOff, Power, Key, Calendar,
-  Shield, Phone,
+  Shield, Phone, Eye,
 } from 'lucide-react';
 import EmployeeForm from '@/components/masters/EmployeeForm';
 
@@ -240,7 +241,12 @@ export default function EmployeeMasterPage() {
                           {(emp.firstName?.[0] ?? '') + (emp.lastName?.[0] ?? '')}
                         </div>
                         <div>
-                          <div className="font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
+                          <Link
+                            href={`/dashboard/masters/employees/${emp.id}`}
+                            className="font-bold text-gray-900 hover:text-blue-700 hover:underline"
+                          >
+                            {emp.firstName} {emp.lastName}
+                          </Link>
                           <div className="text-xs text-gray-500">{emp.email}</div>
                         </div>
                       </div>
@@ -268,6 +274,13 @@ export default function EmployeeMasterPage() {
                     <td className="px-5 py-4"><StatusBadge active={emp.isActive} /></td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1">
+                        <Link
+                          href={`/dashboard/masters/employees/${emp.id}`}
+                          className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
+                          title="View Full MR Dossier"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Link>
                         <button
                           onClick={() => setEditData(emp)}
                           className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-500 transition-colors"

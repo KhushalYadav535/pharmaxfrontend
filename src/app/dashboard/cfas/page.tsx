@@ -82,7 +82,9 @@ export default function CfasPage() {
                 data?.cfas?.map((cfa: any) => (
                   <tr key={cfa.id} className="hover:bg-indigo-50/30 transition-colors">
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-gray-900">{cfa.name}</div>
+                      <Link href={`/dashboard/cfas/${cfa.id}`} className="font-bold text-gray-900 hover:text-indigo-600 hover:underline">
+                        {cfa.name}
+                      </Link>
                       <div className="text-xs text-gray-500 mt-0.5">{cfa.cfaCode}</div>
                     </td>
                     <td className="px-5 py-4">

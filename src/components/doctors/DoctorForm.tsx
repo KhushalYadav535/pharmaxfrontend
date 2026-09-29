@@ -19,7 +19,15 @@ const VISIT_DAYS     = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 const RING = '#2563eb33';
 
-export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
+export default function DoctorForm({
+  onSuccess,
+  doctorId,
+  initialData,
+}: {
+  onSuccess?: () => void;
+  doctorId?: string;
+  initialData?: any;
+}) {
   const router = useRouter();
 
   // Queries
@@ -49,46 +57,46 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
   });
 
   // FFMS Fields
-  const [salutation, setSalutation]           = useState('Dr.');
-  const [firstName, setFirstName]             = useState('');
-  const [middleName, setMiddleName]           = useState('');
-  const [lastName, setLastName]               = useState('');
-  const [specialty, setSpecialty]             = useState('');
-  const [subSpecialty, setSubSpecialty]       = useState('');
-  const [qualification, setQualification]     = useState('');
-  const [classification, setClassification]   = useState('B');
-  const [category, setCategory]               = useState('');
-  const [prescriber, setPrescriber]           = useState(true);
-  const [prescriptionPotential, setPrescriptionPotential] = useState('');
-  const [gender, setGender]                   = useState('');
-  const [maritalStatus, setMaritalStatus]     = useState('');
-  const [phone, setPhone]                     = useState('');
-  const [whatsappNumber, setWhatsappNumber]   = useState('');
-  const [email, setEmail]                     = useState('');
-  const [dateOfBirth, setDateOfBirth]         = useState('');
-  const [marriageAnniversary, setMarriageAnniversary] = useState('');
-  const [address1, setAddress1]               = useState('');
-  const [address2, setAddress2]               = useState('');
-  const [city, setCity]                       = useState('');
-  const [district, setDistrict]               = useState('');
-  const [state, setState]                     = useState('');
-  const [pincode, setPincode]                 = useState('');
-  const [geoTag, setGeoTag]                   = useState('');
-  const [areaId, setAreaId]                   = useState('');
-  const [territoryId, setTerritoryId]         = useState('');
-  const [hqId, setHqId]                       = useState('');
-  const [hospitalId, setHospitalId]           = useState('');
-  const [retailerId, setRetailerId]           = useState('');
-  const [productIds, setProductIds]           = useState<string[]>([]);
-  const [website, setWebsite]                 = useState('');
-  const [facebook, setFacebook]               = useState('');
-  const [instagram, setInstagram]             = useState('');
-  const [twitter, setTwitter]                 = useState('');
-  const [visitDays, setVisitDays]             = useState<string[]>([]);
-  const [isKol, setIsKol]                     = useState(false);
-  const [kolCategory, setKolCategory]         = useState('');
-  const [visitFrequency, setVisitFrequency]   = useState('1');
-  const [notes, setNotes]                     = useState('');
+  const [salutation, setSalutation]           = useState(initialData?.salutation || 'Dr.');
+  const [firstName, setFirstName]             = useState(initialData?.firstName || '');
+  const [middleName, setMiddleName]           = useState(initialData?.middleName || '');
+  const [lastName, setLastName]               = useState(initialData?.lastName || '');
+  const [specialty, setSpecialty]             = useState(initialData?.specialty || '');
+  const [subSpecialty, setSubSpecialty]       = useState(initialData?.subSpecialty || '');
+  const [qualification, setQualification]     = useState(initialData?.qualification || '');
+  const [classification, setClassification]   = useState(initialData?.classification || 'B');
+  const [category, setCategory]               = useState(initialData?.category || '');
+  const [prescriber, setPrescriber]           = useState(initialData?.prescriber ?? true);
+  const [prescriptionPotential, setPrescriptionPotential] = useState(initialData?.prescriptionPotential ? String(initialData.prescriptionPotential) : '');
+  const [gender, setGender]                   = useState(initialData?.gender || '');
+  const [maritalStatus, setMaritalStatus]     = useState(initialData?.maritalStatus || '');
+  const [phone, setPhone]                     = useState(initialData?.phone || '');
+  const [whatsappNumber, setWhatsappNumber]   = useState(initialData?.whatsappNumber || '');
+  const [email, setEmail]                     = useState(initialData?.email || '');
+  const [dateOfBirth, setDateOfBirth]         = useState(initialData?.dateOfBirth ? String(initialData.dateOfBirth).slice(0, 10) : '');
+  const [marriageAnniversary, setMarriageAnniversary] = useState(initialData?.marriageAnniversary ? String(initialData.marriageAnniversary).slice(0, 10) : '');
+  const [address1, setAddress1]               = useState(initialData?.address1 || '');
+  const [address2, setAddress2]               = useState(initialData?.address2 || '');
+  const [city, setCity]                       = useState(initialData?.city || '');
+  const [district, setDistrict]               = useState(initialData?.district || '');
+  const [state, setState]                     = useState(initialData?.state || '');
+  const [pincode, setPincode]                 = useState(initialData?.pincode || '');
+  const [geoTag, setGeoTag]                   = useState(initialData?.geoTag || '');
+  const [areaId, setAreaId]                   = useState(initialData?.areaId || '');
+  const [territoryId, setTerritoryId]         = useState(initialData?.territoryId || '');
+  const [hqId, setHqId]                       = useState(initialData?.hqId || '');
+  const [hospitalId, setHospitalId]           = useState(initialData?.hospitalId || '');
+  const [retailerId, setRetailerId]           = useState(initialData?.retailerId || '');
+  const [productIds, setProductIds]           = useState<string[]>(initialData?.products?.map((p: any) => p.id || p.productId) || []);
+  const [website, setWebsite]                 = useState(initialData?.website || '');
+  const [facebook, setFacebook]               = useState(initialData?.facebook || '');
+  const [instagram, setInstagram]             = useState(initialData?.instagram || '');
+  const [twitter, setTwitter]                 = useState(initialData?.twitter || '');
+  const [visitDays, setVisitDays]             = useState<string[]>(initialData?.visitDays || []);
+  const [isKol, setIsKol]                     = useState(initialData?.isKol ?? false);
+  const [kolCategory, setKolCategory]         = useState(initialData?.kolCategory || '');
+  const [visitFrequency, setVisitFrequency]   = useState(initialData?.visitFrequency ? String(initialData.visitFrequency) : '1');
+  const [notes, setNotes]                     = useState(initialData?.notes || '');
 
   const toggleProduct = (id: string) =>
     setProductIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -105,7 +113,7 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
     if (!specialty)        { setError('Specialty is required'); return; }
     try {
       setIsSubmitting(true); setError('');
-      await api.post('/doctors', {
+      const payload = {
         salutation: salutation || undefined,
         firstName, middleName: middleName || undefined, lastName, specialty,
         subSpecialty: subSpecialty || undefined,
@@ -143,9 +151,16 @@ export default function DoctorForm({ onSuccess }: { onSuccess?: () => void }) {
         kolCategory: isKol && kolCategory ? kolCategory : undefined,
         visitFrequency: Number(visitFrequency) || 1,
         notes: notes || undefined,
-      });
+      };
+
+      if (doctorId) {
+        await api.put(`/doctors/${doctorId}`, payload);
+      } else {
+        await api.post('/doctors', payload);
+      }
+
       if (onSuccess) onSuccess();
-      else router.push('/dashboard/doctors');
+      else router.push(doctorId ? `/dashboard/doctors/${doctorId}` : '/dashboard/doctors');
     } catch (e: any) { setError(e.response?.data?.message || e.message || 'Failed to save doctor'); }
     finally { setIsSubmitting(false); }
   };

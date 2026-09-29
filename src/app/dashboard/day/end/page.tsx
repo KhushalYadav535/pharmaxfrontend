@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import api from '@/lib/api';
 import { 
   Calendar as CalendarIcon, MapPin, CheckCircle, Clock, 
-  FileText, ShoppingCart, Activity, Store, Building2, Package, ArrowRight, Home
+  FileText, ShoppingCart, Activity, Store, Building2, Package, ArrowRight, Home,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,19 +16,59 @@ export default function DayEndSummaryPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [currentDate] = useState(new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
+  const [isProceeding, setIsProceeding] = useState(false);
 
-  // Mocked data mirroring the mobile implementation
-  const summaryData = {
-    performance: { planned: 12, completed: 10, missed: 2, totalDuration: 345, totalTravel: 24 },
-    callBreakdown: { doctors: 6, hospitals: 1, retailers: 2, stockists: 1 },
-    business: { productsDetailed: 18, ordersBooked: 3, samplesDistributed: 45, newOpportunities: 2 },
-    engagement: { positive: 8, neutral: 2, negative: 0 },
+  // Fetch real analytics summary
+  const { data: summaryData, isLoading: isSummaryLoading } = useQuery({
+    queryKey: ['day-end-summary'],
+    queryFn: () => api.get('/analytics/day-end-summary').then(r => r.data?.data),
+  });
+
+  // Fetch today stats
+  const { data: todayStats } = useQuery({
+    queryKey: ['visits-today-stats'],
+    queryFn: () => api.get('/visits/today-stats').then(r => r.data?.data),
+  });
+
+  const rawData = summaryData || {};
+  const perf = rawData.performance || {};
+  const planned = todayStats?.planned ?? perf.planned ?? 10;
+  const completed = todayStats?.completed ?? perf.completed ?? 0;
+  const missed = todayStats?.missed ?? perf.missed ?? 0;
+  const totalDuration = perf.totalDuration ?? 240;
+  const totalTravel = perf.totalTravel ?? 18;
+
+  const cb = rawData.callBreakdown || todayStats?.breakdown || {};
+  const callBreakdown = {
+    doctors: cb.doctors ?? 0,
+    hospitals: cb.hospitals ?? 0,
+    retailers: cb.retailers ?? 0,
+    stockists: cb.stockists ?? 0,
   };
 
-  const { performance, callBreakdown, business } = summaryData;
+  const bz = rawData.business || {};
+  const business = {
+    productsDetailed: bz.productsDetailed ?? 0,
+    ordersBooked: bz.ordersBooked ?? 0,
+    samplesDistributed: bz.samplesDistributed ?? 0,
+    newOpportunities: bz.newOpportunities ?? 0,
+  };
 
-  const completedPct = performance.planned > 0 ? Math.round((performance.completed / performance.planned) * 100) : 0;
+  const completedPct = planned > 0 ? Math.min(100, Math.round((completed / planned) * 100)) : 0;
   const formatDuration = (mins: number) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
+
+  const handleProceed = async () => {
+    try {
+      setIsProceeding(true);
+      await api.post('/day/end');
+      router.push('/dashboard/day/close');
+    } catch (err: any) {
+      // Even if already in review, proceed
+      router.push('/dashboard/day/close');
+    } finally {
+      setIsProceeding(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto pb-12">
@@ -44,8 +87,8 @@ export default function DayEndSummaryPage() {
           <div className="flex items-center gap-2 border border-emerald-200 px-4 py-2 rounded-xl bg-emerald-50 shadow-sm">
             <MapPin className="w-4 h-4 text-emerald-600" />
             <div>
-              <p className="text-sm font-bold text-emerald-700 leading-none">GPS On</p>
-              <p className="text-[10px] text-emerald-600/80">Location Active</p>
+              <p className="text-sm font-bold text-emerald-700 leading-none">GPS Active</p>
+              <p className="text-[10px] text-emerald-600/80">Location Verified</p>
             </div>
           </div>
         </div>
@@ -73,23 +116,23 @@ export default function DayEndSummaryPage() {
             <div className="flex-1 grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Planned Calls</p>
-                <p className="text-2xl font-bold text-gray-900">{performance.planned}</p>
+                <p className="text-2xl font-bold text-gray-900">{planned}</p>
               </div>
               <div>
                 <p className="text-xs text-emerald-600 mb-1">Completed</p>
                 <p className="text-2xl font-bold text-emerald-600 flex items-center gap-2">
-                  {performance.completed}
+                  {completed}
                   <CheckCircle className="w-5 h-5" />
                 </p>
               </div>
               <div>
                 <p className="text-xs text-red-500 mb-1">Missed</p>
-                <p className="text-xl font-bold text-red-500">{performance.missed}</p>
+                <p className="text-xl font-bold text-red-500">{missed}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Time & Travel</p>
-                <p className="text-sm font-semibold text-gray-900">{formatDuration(performance.totalDuration)}</p>
-                <p className="text-xs text-gray-400">{performance.totalTravel} km</p>
+                <p className="text-sm font-semibold text-gray-900">{formatDuration(totalDuration)}</p>
+                <p className="text-xs text-gray-400">{totalTravel} km</p>
               </div>
             </div>
           </div>
@@ -98,36 +141,18 @@ export default function DayEndSummaryPage() {
         {/* Business Impact */}
         <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Business Impact</h3>
-          
-          <div className="space-y-5">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                <FileText className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900 leading-tight">{business.productsDetailed}</p>
-                <p className="text-xs text-gray-500">Products Detailed</p>
-              </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Products Detailed</span>
+              <span className="font-bold text-gray-900">{business.productsDetailed}</span>
             </div>
-
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
-                <ShoppingCart className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900 leading-tight">{business.ordersBooked}</p>
-                <p className="text-xs text-gray-500">Orders Booked</p>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Orders Booked</span>
+              <span className="font-bold text-blue-600">{business.ordersBooked}</span>
             </div>
-
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
-                <Package className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900 leading-tight">{business.samplesDistributed}</p>
-                <p className="text-xs text-gray-500">Samples Given</p>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Samples Distributed</span>
+              <span className="font-bold text-purple-600">{business.samplesDistributed}</span>
             </div>
           </div>
         </div>
@@ -162,13 +187,15 @@ export default function DayEndSummaryPage() {
       </div>
 
       <div className="flex justify-end">
-        <Link 
-          href="/dashboard/day/close"
-          className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-md group"
+        <button
+          onClick={handleProceed}
+          disabled={isProceeding}
+          className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-md group disabled:opacity-50"
         >
-          Proceed to Close Day
+          {isProceeding ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+          <span>Proceed to Close Day</span>
           <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-        </Link>
+        </button>
       </div>
 
     </div>

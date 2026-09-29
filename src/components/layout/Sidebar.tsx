@@ -12,7 +12,7 @@ import {
   CheckSquare, Megaphone, TrendingUp, FlaskConical, Database, Target,
   Sparkles, Boxes, UserCog, LineChart, CheckCircle2, GraduationCap,
   FileSpreadsheet, Receipt, CalendarOff, Gift, MonitorPlay, Warehouse,
-  Search, X, Activity, ShieldCheck, Bell, SlidersHorizontal
+  Search, X, Activity, ShieldCheck, Bell, SlidersHorizontal, Route
 } from 'lucide-react';
 
 interface NavItem {
@@ -39,6 +39,14 @@ const NAV_SECTIONS: NavSection[] = [
     accentColor: '#2563EB',
     items: [
       { label: 'Executive Home', href: '/dashboard', icon: LayoutDashboard },
+      {
+        label: 'Live Field Monitor',
+        href: '/dashboard/visits/monitor',
+        icon: Activity,
+        roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'Live',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
       {
         label: 'Approvals Hub',
         href: '/dashboard/approvals',
@@ -85,6 +93,21 @@ const NAV_SECTIONS: NavSection[] = [
     icon: ClipboardList,
     accentColor: '#0D9488',
     items: [
+      {
+        label: 'Live Field Monitor',
+        href: '/dashboard/visits/monitor',
+        icon: Activity,
+        roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'Live',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
+      {
+        label: 'Field & MTP Calendar',
+        href: '/dashboard/calendar',
+        icon: Calendar,
+        badge: 'Plan',
+        badgeColor: 'bg-indigo-100 text-indigo-700',
+      },
       { label: 'Doctor Calls & Visits', href: '/dashboard/visits', icon: ClipboardList },
       { label: 'Daily Call Reports (DCR)', href: '/dashboard/daily-reports', icon: FileText },
       {
@@ -99,7 +122,14 @@ const NAV_SECTIONS: NavSection[] = [
         label: 'Monthly Tour Plans (MTP)',
         href: '/dashboard/tour-planning',
         icon: Calendar,
-        roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP'],
+      },
+      {
+        label: 'GPS Route Audit',
+        href: '/dashboard/visits/route-audit',
+        icon: Route,
+        roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'GPS',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
       },
       { label: 'Field Attendance', href: '/dashboard/attendance', icon: Clock },
       { label: 'Leave Desk', href: '/dashboard/leave', icon: CalendarOff },
@@ -113,7 +143,6 @@ const NAV_SECTIONS: NavSection[] = [
         label: 'TA / DA & Expenses',
         href: '/dashboard/expenses',
         icon: Receipt,
-        roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP'],
       },
       { label: 'Tasks & Directives', href: '/dashboard/tasks', icon: CheckSquare },
     ],
