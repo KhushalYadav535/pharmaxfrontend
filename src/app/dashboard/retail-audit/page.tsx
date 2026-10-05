@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -9,7 +10,8 @@ import { CheckSquare, Plus, X, Loader2, Star, Store, BarChart2, TrendingUp, Aler
 const scoreColor = (s: number) => s >= 75 ? 'text-emerald-600 bg-emerald-50' : s >= 50 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50';
 const scoreBar = (s: number) => s >= 75 ? 'bg-emerald-500' : s >= 50 ? 'bg-amber-500' : 'bg-red-500';
 
-const PRODUCTS = ['Amoxil', 'Paracip', 'Calpol', 'Augmentin', 'Azithral', 'Pantop', 'Ecosprin', 'Clopilet'];
+const PRODUCTS = ['HEMOVAC TABLET', 'BIOSPORE SACHET', 'PNCROS DRS CAPSULE', 'RINOVAC SUSPENSION', 'VEEPROS D3 CAPSULE', 'CALCICAL TABLET'];
+
 
 const EMPTY_FORM = {
   retailerId: '', auditDate: new Date().toISOString().slice(0, 10),
@@ -85,9 +87,9 @@ export default function RetailAuditPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Shelf share, display compliance, price check & photo audits</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-          <Plus className="w-4 h-4" /> New Audit
-        </button>
+        <Link href="/dashboard/retail-audit/new" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
+          <Plus className="w-4 h-4" /> New Audit Form
+        </Link>
       </div>
 
       {/* Stats */}

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -116,9 +117,9 @@ export default function SchemesPage() {
           <p className="text-gray-500 text-sm mt-1">Manage cashback, free goods, display incentives & loyalty programs</p>
         </div>
         {isManager && (
-          <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-            <Plus className="w-4 h-4" /> Create Scheme
-          </button>
+          <Link href="/dashboard/schemes/new" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
+            <Plus className="w-4 h-4" /> Create Scheme Form
+          </Link>
         )}
       </div>
 

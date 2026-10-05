@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -84,13 +85,13 @@ export default function SamplesPage() {
             Audit physician sample inventories, doctor distribution compliance, and MR allocations
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
+        <Link
+          href="/dashboard/samples/new"
           id="distribute-sample-btn"
           className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" /> Issue Sample to Doctor
-        </button>
+        </Link>
       </div>
 
       {/* KPI Cards */}

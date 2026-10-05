@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Calendar, Plus, Loader2, X, CheckCircle, AlertCircle } from 'lucide-react';
@@ -63,9 +64,9 @@ export default function LeavePage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Apply for leaves and track your leave balance</p>
         </div>
-        <button onClick={() => setShowForm(true)} id="apply-leave-btn" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+        <Link href="/dashboard/leave/new" id="apply-leave-btn" className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
           <Plus className="w-4 h-4" /> Apply Leave
-        </button>
+        </Link>
       </div>
 
       {/* Leave Balance Cards */}

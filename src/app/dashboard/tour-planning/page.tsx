@@ -80,12 +80,28 @@ export default function TourPlanningPage() {
               Plan and manage upcoming field visits and territories
             </p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" /> Create Tour Plan
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href="/dashboard/tour-planning/daily"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200 transition-colors shadow-2xs"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              Daily Itinerary
+            </Link>
+            <Link
+              href="/dashboard/tour-planning/my-plans"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors shadow-2xs"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              Monthly Calendar
+            </Link>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Create Tour Plan
+            </button>
+          </div>
         </div>
 
         {/* Filters */}

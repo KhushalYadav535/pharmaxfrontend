@@ -12,7 +12,7 @@ import {
   CheckSquare, Megaphone, TrendingUp, FlaskConical, Database, Target,
   Sparkles, Boxes, UserCog, LineChart, CheckCircle2, GraduationCap,
   FileSpreadsheet, Receipt, CalendarOff, Gift, MonitorPlay, Warehouse,
-  Search, X, Activity, ShieldCheck, Bell, SlidersHorizontal, Route
+  Search, X, Activity, ShieldCheck, Bell, SlidersHorizontal, Route, Plus
 } from 'lucide-react';
 
 interface NavItem {
@@ -108,6 +108,18 @@ const NAV_SECTIONS: NavSection[] = [
         badge: 'Plan',
         badgeColor: 'bg-indigo-100 text-indigo-700',
       },
+      {
+        label: 'Next Call Console',
+        href: '/dashboard/visits/next-call',
+        icon: Clock,
+        badge: 'Live',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
+      {
+        label: 'Batch Day Planner',
+        href: '/dashboard/visits/plan-new',
+        icon: Plus,
+      },
       { label: 'Doctor Calls & Visits', href: '/dashboard/visits', icon: ClipboardList },
       { label: 'Daily Call Reports (DCR)', href: '/dashboard/daily-reports', icon: FileText },
       {
@@ -122,6 +134,11 @@ const NAV_SECTIONS: NavSection[] = [
         label: 'Monthly Tour Plans (MTP)',
         href: '/dashboard/tour-planning',
         icon: Calendar,
+      },
+      {
+        label: 'Daily Tour Itinerary',
+        href: '/dashboard/tour-planning/daily',
+        icon: Clock,
       },
       {
         label: 'GPS Route Audit',
