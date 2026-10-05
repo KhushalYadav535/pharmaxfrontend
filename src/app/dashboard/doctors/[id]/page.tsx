@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -24,9 +24,15 @@ import {
   Clock,
   Layers,
   Check,
-  Loader2
+  Loader2,
+  Sparkles,
+  Play
 } from 'lucide-react';
 import Link from 'next/link';
+import DoctorDetailingPlanModal, {
+  DoctorDetailingPlan,
+  getDoctorDetailingPlan
+} from '@/components/operations/DoctorDetailingPlanModal';
 
 export default function DoctorDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +40,8 @@ export default function DoctorDetailPage() {
   const qc = useQueryClient();
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [isDetailingPlanModalOpen, setIsDetailingPlanModalOpen] = useState(false);
+  const [doctorPlan, setDoctorPlan] = useState<DoctorDetailingPlan | null>(null);
 
   // Fetch Doctor details
   const { data, isLoading } = useQuery({
@@ -47,6 +55,14 @@ export default function DoctorDetailPage() {
     queryFn: () => api.get('/content/categories').then((r) => r.data.data),
   });
   const categoriesList = Array.isArray(catData) ? catData : [];
+
+  // Load doctor's detailing plan
+  useEffect(() => {
+    if (id) {
+      const plan = getDoctorDetailingPlan(id);
+      setDoctorPlan(plan);
+    }
+  }, [id, isDetailingPlanModalOpen]);
 
   // Mutation to update Doctor Category
   const updateCategoryMutation = useMutation({
@@ -89,19 +105,21 @@ export default function DoctorDetailPage() {
   if (!data) return <div className="text-center py-16 text-slate-400 font-semibold">Doctor not found</div>;
 
   const isPending = data.approvalStatus === 'PENDING';
+  const prescribedMedicinesCount = data.productsSelected?.length || 0;
+  const curatedSlidesCount = doctorPlan?.selectedContentIds?.length || 0;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-16">
-      {/* Top Bar Navigation */}
-      <div className="flex items-center justify-between">
+      {/* Top Breadcrumb & Action Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-3 py-2 rounded-xl transition-colors shadow-sm"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 text-xs font-semibold transition-colors w-fit"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Doctor Directory
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {isPending && (
             <div className="flex items-center gap-2">
               <button
@@ -121,6 +139,23 @@ export default function DoctorDetailPage() {
             </div>
           )}
 
+          {/* Curate Slide Set */}
+          <button
+            onClick={() => setIsDetailingPlanModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-xl transition-colors shadow-sm"
+          >
+            <Sparkles className="w-4 h-4 text-purple-600" />
+            Curate Slide Deck ({curatedSlidesCount})
+          </button>
+
+          {/* Start Detailing Call */}
+          <Link
+            href={`/dashboard/digital-detailing?entityId=${data.id}&entityName=${encodeURIComponent(`Dr. ${data.firstName} ${data.lastName}`)}&specialty=${encodeURIComponent(data.specialty || '')}&category=${encodeURIComponent(data.category || '')}&usePlan=true`}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm shadow-emerald-600/20"
+          >
+            <Play className="w-4 h-4 fill-white" /> Start Detailing Call
+          </Link>
+
           <button
             onClick={() => {
               setSelectedCategory(data.category || data.specialty || '');
@@ -133,7 +168,7 @@ export default function DoctorDetailPage() {
 
           <Link
             href={`/dashboard/doctors/${id}/edit`}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200 transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition-colors"
           >
             <Edit2 className="w-4 h-4" /> Edit Doctor
           </Link>
@@ -148,36 +183,17 @@ export default function DoctorDetailPage() {
               {data.firstName?.[0] || 'D'}{data.lastName?.[0] || 'R'}
             </div>
             <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                  {data.salutation || 'Dr.'} {data.firstName} {data.lastName}
-                </h1>
-                {data.doctorCode && (
-                  <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-md">
-                    {data.doctorCode}
-                  </span>
-                )}
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
+                  {data.doctorCode || 'DOC-GEN'}
+                </span>
                 {data.isKol && (
-                  <span className="flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> KOL
+                  <span className="flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-2 py-0.5 rounded-md">
+                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Key Opinion Leader
                   </span>
                 )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {data.qualification && (
-                  <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md">
-                    {data.qualification}
-                  </span>
-                )}
-                <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                  Category: {data.category || data.specialty || 'General'}
-                </span>
-                <span className={`px-2 py-0.5 rounded-md font-bold ${CLASSIFICATION_COLORS[data.classification]}`}>
-                  Class {data.classification.replace('_', '+')}
-                </span>
                 <span
-                  className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                     data.approvalStatus === 'APPROVED'
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : data.approvalStatus === 'PENDING'
@@ -188,63 +204,76 @@ export default function DoctorDetailPage() {
                   {data.approvalStatus || 'APPROVED'}
                 </span>
               </div>
-
-              <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-slate-500">
-                {data.phone && (
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" /> {data.phone}
-                  </span>
-                )}
-                {(data.city || data.state) && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    {[data.city, data.state].filter(Boolean).join(', ')}
-                  </span>
-                )}
-                {data.hq?.name && (
-                  <span className="flex items-center gap-1 font-semibold text-slate-700">
-                    <Building className="w-3.5 h-3.5 text-slate-400" /> HQ: {data.hq.name}
-                  </span>
-                )}
-              </div>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+                {data.salutation || 'Dr.'} {data.firstName} {data.lastName}
+              </h1>
+              <p className="text-slate-500 text-xs font-medium">
+                {data.qualification || 'MBBS'} • {data.specialty || 'General Practitioner'}
+                {data.city && ` • ${data.city}`}
+              </p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-end sm:self-center">
+            <div className="bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-center">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Classification</span>
+              <span className={`text-sm font-black ${CLASSIFICATION_COLORS[data.classification]}`}>
+                Class {data.classification?.replace('_', '+') || 'A'}
+              </span>
+            </div>
+            <div className="bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-center">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Rx Potential</span>
+              <span className="text-sm font-black text-emerald-700">{data.prescriptionPotential || 8}/10</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── DETAILING SLIDE DECK & PRESCRIBED PRODUCTS DOSSIER ── */}
+        <div className="mt-6 pt-6 border-t border-slate-100 bg-gradient-to-r from-purple-50/60 to-emerald-50/60 -mx-6 -mb-6 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/20">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-slate-900">Custom Detailing Slide Set</h4>
+                <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  Active
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                {prescribedMedicinesCount} Prescribed Medicines Mapped • {curatedSlidesCount} Detailing Slides in Sequence Deck
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsDetailingPlanModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Reorder & Curate Slides
+            </button>
+            <Link
+              href={`/dashboard/digital-detailing?entityId=${data.id}&entityName=${encodeURIComponent(`Dr. ${data.firstName} ${data.lastName}`)}&specialty=${encodeURIComponent(data.specialty || '')}&category=${encodeURIComponent(data.category || '')}&usePlan=true`}
+              className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-colors shadow-xs"
+            >
+              <Play className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" /> Detailing Call
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Metric Counters */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Rx Potential', value: `${data.prescriptionPotential}/10`, icon: Star, color: 'text-amber-600 bg-amber-50' },
-          { label: 'Total Visits Recorded', value: data.visits?.length ?? 0, icon: Calendar, color: 'text-blue-600 bg-blue-50' },
-          { label: 'Samples Distributed', value: data.sampleDistributions?.length ?? 0, icon: Package, color: 'text-purple-600 bg-purple-50' },
-          { label: 'Visit Frequency', value: `${data.visitFrequency || 1}x / month`, icon: Clock, color: 'text-emerald-600 bg-emerald-50' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 text-center">
-            <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center mx-auto mb-2`}>
-              <Icon className="w-4 h-4" />
-            </div>
-            <p className="text-xl font-bold text-slate-900">{value}</p>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Master Information Grid */}
+      {/* Grid Meta Information */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-4">
         <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-          <Building2 className="w-4 h-4 text-emerald-600" /> Master Profile & Territory Mapping
+          <Building2 className="w-4 h-4 text-emerald-600" /> Doctor Census & Territory Mapping
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
           <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Doctor Code</span>
-            <span className="font-mono font-bold text-slate-900 text-sm">{data.doctorCode || 'DOC-UNASSIGNED'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Headquarter (HQ)</span>
-            <span className="font-bold text-slate-900 text-sm">{data.hq?.name || data.territory?.name || 'Nagpur Headquarter'}</span>
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Headquarter</span>
+            <span className="font-bold text-slate-900 text-sm">{data.hq?.name || data.territory?.name || 'Nagpur HQ'}</span>
           </div>
 
           <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
@@ -411,6 +440,18 @@ export default function DoctorDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ──────────────── MODAL: DETAILING PLAN & SLIDE SET ──────────────── */}
+      {isDetailingPlanModalOpen && (
+        <DoctorDetailingPlanModal
+          isOpen={isDetailingPlanModalOpen}
+          onClose={() => setIsDetailingPlanModalOpen(false)}
+          doctor={data}
+          onPlanSaved={(saved) => {
+            setDoctorPlan(saved);
+          }}
+        />
       )}
     </div>
   );

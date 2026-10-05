@@ -177,6 +177,7 @@ const NAV_SECTIONS: NavSection[] = [
     accentColor: '#7E22CE',
     items: [
       { label: 'Digital Detailing Deck', href: '/dashboard/digital-detailing', icon: MonitorPlay },
+      { label: 'Detailing Categories & Slide Sets', href: '/dashboard/detailing-categories', icon: SlidersHorizontal },
       {
         label: 'Content Library',
         href: '/dashboard/content',

@@ -23,9 +23,11 @@ import {
   ShieldCheck,
   ChevronRight,
   SlidersHorizontal,
-  ArrowRight
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
+import DoctorDetailingPlanModal from '@/components/operations/DoctorDetailingPlanModal';
 
 const CLASSIFICATIONS = ['A_PLUS', 'A', 'B', 'C'];
 const APPROVAL_STATUSES = [
@@ -46,6 +48,7 @@ function DoctorsPageContent() {
   const [approvalStatus, setApprovalStatus] = useState<'ALL' | 'APPROVED' | 'PENDING' | 'REJECTED'>('ALL');
   const [classification, setClassification] = useState('');
   const [page, setPage] = useState(1);
+  const [curatingDoctor, setCuratingDoctor] = useState<any | null>(null);
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -479,6 +482,13 @@ function DoctorsPageContent() {
                               </button>
                             </>
                           )}
+                          <button
+                            onClick={() => setCuratingDoctor(doc)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-2 py-1.5 rounded-lg transition-colors border border-purple-200"
+                            title="Curate Detailing Slide Set"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Slides
+                          </button>
                           <Link
                             href={`/dashboard/doctors/${doc.id}`}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors"
@@ -520,6 +530,14 @@ function DoctorsPageContent() {
           </div>
         )}
       </div>
+
+      {curatingDoctor && (
+        <DoctorDetailingPlanModal
+          isOpen={!!curatingDoctor}
+          onClose={() => setCuratingDoctor(null)}
+          doctor={curatingDoctor}
+        />
+      )}
     </div>
   );
 }

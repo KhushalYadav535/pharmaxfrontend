@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
@@ -19,9 +19,21 @@ import {
   Palette,
   CheckCircle2,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Layers,
+  UserPlus,
+  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
+import DoctorDetailingPlanModal, {
+  DoctorDetailingPlan
+} from '@/components/operations/DoctorDetailingPlanModal';
+import {
+  DetailingCategory,
+  DEFAULT_CATEGORIES,
+  normalizeDoctorSpecialty,
+  isProductInSpecialty
+} from '@/lib/product-specialty-mapping';
 
 type TabKey = 'categories' | 'doctors';
 
@@ -59,10 +71,29 @@ export default function DetailingCategoriesPage() {
   const [reassigningDoctor, setReassigningDoctor] = useState<any | null>(null);
   const [targetCategory, setTargetCategory] = useState('');
 
+  // Doctor Slide Deck Modal state
+  const [curatingDoctor, setCuratingDoctor] = useState<any | null>(null);
+
+  // Batch Doctor Assignment modal state
+  const [assignModalCategory, setAssignModalCategory] = useState<any | null>(null);
+  const [selectedDoctorIds, setSelectedDoctorIds] = useState<string[]>([]);
+  const [assignDoctorSearch, setAssignDoctorSearch] = useState('');
+  const [doctorAssignmentFilter, setDoctorAssignmentFilter] = useState<'all' | 'selected'>('all');
+  const [isSavingAssignments, setIsSavingAssignments] = useState(false);
+
   // Queries
-  const { data: categories, isLoading: catLoading } = useQuery({
+  const { data: categories = DEFAULT_CATEGORIES, isLoading: catLoading } = useQuery({
     queryKey: ['detailing-categories-list'],
-    queryFn: () => api.get('/content/categories').then((r) => r.data.data),
+    queryFn: () =>
+      api
+        .get('/content/categories')
+        .then((r) => (Array.isArray(r.data.data) && r.data.data.length > 0 ? r.data.data : DEFAULT_CATEGORIES))
+        .catch(() => DEFAULT_CATEGORIES),
+  });
+
+  const { data: allContents = [] } = useQuery({
+    queryKey: ['contents'],
+    queryFn: () => api.get('/content').then((r) => r.data.data || []),
   });
 
   const { data: productsData } = useQuery({
@@ -79,19 +110,29 @@ export default function DetailingCategoriesPage() {
           params: {
             category: selectedCategoryFilter || undefined,
             search: doctorSearch || undefined,
-            limit: 100,
+            limit: 200,
           },
         })
         .then((r) => r.data.data),
-    enabled: activeTab === 'doctors',
+    enabled: activeTab === 'doctors' || !!assignModalCategory,
   });
   const doctorList = doctorsData?.doctors || [];
+
+  // All doctors for assignment modal
+  const { data: allDoctorsData } = useQuery({
+    queryKey: ['all-doctors-for-assignment'],
+    queryFn: () =>
+      api.get('/doctors', { params: { limit: 500 } }).then((r) => r.data.data?.doctors || []),
+    enabled: !!assignModalCategory,
+  });
+  const allDoctors = allDoctorsData || [];
 
   // Mutations
   const createCategoryMutation = useMutation({
     mutationFn: (newCat: any) => api.post('/content/categories', newCat),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['detailing-categories-list'] });
+      qc.invalidateQueries({ queryKey: ['detailing-categories'] });
       setIsNewCategoryModalOpen(false);
       resetForm();
     },
@@ -101,6 +142,7 @@ export default function DetailingCategoriesPage() {
     mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/content/categories/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['detailing-categories-list'] });
+      qc.invalidateQueries({ queryKey: ['detailing-categories'] });
       setEditingCategory(null);
       resetForm();
     },
@@ -110,6 +152,7 @@ export default function DetailingCategoriesPage() {
     mutationFn: (id: string) => api.delete(`/content/categories/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['detailing-categories-list'] });
+      qc.invalidateQueries({ queryKey: ['detailing-categories'] });
       setDeletingId(null);
     },
   });
@@ -145,6 +188,75 @@ export default function DetailingCategoriesPage() {
     setProductSearch('');
   };
 
+  // Open Batch Doctor Assignment Modal
+  const openAssignModal = (cat: any) => {
+    setAssignModalCategory(cat);
+    setAssignDoctorSearch('');
+    setDoctorAssignmentFilter('all');
+    // Pre-select doctors whose category/specialty matches this category
+    const catCode = (cat.code || cat.name).toUpperCase();
+    const assignedIds = allDoctors
+      .filter(
+        (d: any) =>
+          normalizeDoctorSpecialty(d.specialty, d.category, categories) === catCode ||
+          (d.category && d.category.toUpperCase() === catCode) ||
+          (d.specialty && d.specialty.toUpperCase() === catCode)
+      )
+      .map((d: any) => d.id);
+    setSelectedDoctorIds(assignedIds);
+  };
+
+  const toggleDoctorSelection = (docId: string) => {
+    setSelectedDoctorIds((prev) =>
+      prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
+    );
+  };
+
+  // Save Batch Doctor Assignments
+  const handleSaveDoctorAssignments = async () => {
+    if (!assignModalCategory) return;
+    setIsSavingAssignments(true);
+    try {
+      const catCode = (assignModalCategory.code || assignModalCategory.name).toUpperCase();
+      const currentCategoryDocs = allDoctors.filter(
+        (d: any) =>
+          normalizeDoctorSpecialty(d.specialty, d.category, categories) === catCode ||
+          (d.category && d.category.toUpperCase() === catCode)
+      );
+      const currentCategoryDocIds = new Set<string>(currentCategoryDocs.map((d: any) => String(d.id)));
+      const newlySelected = selectedDoctorIds.filter((id) => !currentCategoryDocIds.has(id));
+      const unselected = Array.from(currentCategoryDocIds).filter((id) => !selectedDoctorIds.includes(id));
+
+      // Update newly selected doctors
+      await Promise.all(
+        newlySelected.map((id) =>
+          api.put(`/doctors/${id}`, {
+            specialty: assignModalCategory.name,
+            category: assignModalCategory.code || assignModalCategory.name,
+          })
+        )
+      );
+
+      // Revert unselected doctors back to General
+      await Promise.all(
+        unselected.map((id) =>
+          api.put(`/doctors/${id}`, {
+            category: 'GENERAL',
+          })
+        )
+      );
+
+      await qc.invalidateQueries({ queryKey: ['doctors-category-view'] });
+      await qc.invalidateQueries({ queryKey: ['all-doctors-for-assignment'] });
+      await qc.invalidateQueries({ queryKey: ['doctors'] });
+      setAssignModalCategory(null);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to update doctor assignments.');
+    } finally {
+      setIsSavingAssignments(false);
+    }
+  };
+
   const handleSave = () => {
     const keywords = formKeywords
       .split(',')
@@ -161,7 +273,7 @@ export default function DetailingCategoriesPage() {
     };
 
     if (editingCategory) {
-      updateCategoryMutation.mutate({ id: editingCategory.id, data: payload });
+      updateCategoryMutation.mutate({ id: editingCategory.id || editingCategory.code, data: payload });
     } else {
       createCategoryMutation.mutate(payload);
     }
@@ -182,23 +294,49 @@ export default function DetailingCategoriesPage() {
     return nameMatch || codeMatch || prodMatch;
   });
 
+  // Modal filtered doctors for Batch Assignment
+  const modalFilteredDoctors = useMemo(() => {
+    let list = allDoctors;
+    if (doctorAssignmentFilter === 'selected') {
+      list = list.filter((d: any) => selectedDoctorIds.includes(d.id));
+    }
+    if (assignDoctorSearch.trim()) {
+      const q = assignDoctorSearch.toLowerCase();
+      list = list.filter((d: any) => {
+        const name = `${d.firstName || ''} ${d.lastName || ''}`.toLowerCase();
+        const code = (d.doctorCode || '').toLowerCase();
+        const spec = (d.specialty || '').toLowerCase();
+        const hosp = (d.hospital?.name || '').toLowerCase();
+        const city = (d.city || '').toLowerCase();
+        return name.includes(q) || code.includes(q) || spec.includes(q) || hosp.includes(q) || city.includes(q);
+      });
+    }
+    return list;
+  }, [allDoctors, assignDoctorSearch, doctorAssignmentFilter, selectedDoctorIds]);
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-16">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 p-6 rounded-3xl text-white shadow-xl">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-2 border border-emerald-400/30">
-            <Sparkles className="w-3.5 h-3.5" /> Biocros Master Catalog
+            <Sparkles className="w-3.5 h-3.5" /> Biocros Detailing Master Engine
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Detailing & Doctor Categories Master
           </h1>
-          <p className="text-emerald-100/80 text-sm mt-1">
-            Define dynamic doctor categories, map Biocros pharmaceutical products, and automate field detailing.
+          <p className="text-emerald-100/80 text-xs sm:text-sm mt-1">
+            Define doctor specialties, map Biocros medicines, curate detailing slide sets, and batch-assign field doctors.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/digital-detailing"
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2.5 rounded-xl transition-all text-xs sm:text-sm border border-white/20"
+          >
+            <Layers className="w-4 h-4 text-emerald-300" /> Digital Detailing Deck
+          </Link>
           <button
             onClick={() => {
               resetForm();
@@ -234,7 +372,7 @@ export default function DetailingCategoriesPage() {
           }`}
         >
           <Users className="w-4 h-4" />
-          Doctor Category Mappings
+          Doctor Detailing & Specialties
         </button>
       </div>
 
@@ -264,7 +402,10 @@ export default function DetailingCategoriesPage() {
               <SlidersHorizontal className="w-10 h-10 mx-auto mb-3 opacity-30 text-slate-400" />
               <p className="font-semibold text-slate-700">No detailing categories found</p>
               <button
-                onClick={() => { resetForm(); setIsNewCategoryModalOpen(true); }}
+                onClick={() => {
+                  resetForm();
+                  setIsNewCategoryModalOpen(true);
+                }}
                 className="mt-3 text-xs font-bold text-emerald-600 hover:underline"
               >
                 + Create your first Detailing Category
@@ -276,17 +417,23 @@ export default function DetailingCategoriesPage() {
                 const productCount = Array.isArray(cat.productNames) ? cat.productNames.length : 0;
                 const keywords = Array.isArray(cat.doctorKeywords) ? cat.doctorKeywords : [];
 
+                // Count matching slides in content catalog
+                const matchingSlidesCount = allContents.filter((c: any) => {
+                  const pName = c.productName || c.title || '';
+                  return isProductInSpecialty(pName, cat.code || cat.name, categories);
+                }).length;
+
                 return (
                   <div
-                    key={cat.id}
-                    className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 hover:border-emerald-300 transition-all flex flex-col justify-between group"
+                    key={cat.id || cat.code}
+                    className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 hover:border-emerald-300 transition-all flex flex-col justify-between group"
                   >
                     <div>
                       {/* Top Header */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
                           <span
-                            className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                            className="w-4 h-4 rounded-full flex-shrink-0"
                             style={{ backgroundColor: cat.color || '#059669' }}
                           />
                           <h3 className="font-bold text-slate-900 text-sm">{cat.name}</h3>
@@ -299,6 +446,16 @@ export default function DetailingCategoriesPage() {
                       {cat.description && (
                         <p className="text-xs text-slate-500 mt-2 line-clamp-2">{cat.description}</p>
                       )}
+
+                      {/* Stats Badges */}
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-lg">
+                          {productCount} Medicines
+                        </span>
+                        <span className="text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-lg">
+                          {matchingSlidesCount} Detailing Slides
+                        </span>
+                      </div>
 
                       {/* Doctor Keywords */}
                       <div className="mt-3">
@@ -323,23 +480,22 @@ export default function DetailingCategoriesPage() {
                       </div>
 
                       {/* Mapped Biocros Products */}
-                      <div className="mt-4">
-                        <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">
-                          <span>Mapped Medicines</span>
-                          <span className="text-emerald-700 font-bold">{productCount} products</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(cat.productNames || []).slice(0, 5).map((prod: string, idx: number) => (
+                      <div className="mt-3">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider block mb-1">
+                          Mapped Medicines
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {(cat.productNames || []).slice(0, 4).map((prod: string, idx: number) => (
                             <span
                               key={idx}
-                              className="text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2 py-0.5 rounded-md"
+                              className="text-[10px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md"
                             >
                               {prod}
                             </span>
                           ))}
-                          {productCount > 5 && (
-                            <span className="text-[11px] text-slate-400 font-bold self-center">
-                              +{productCount - 5} more
+                          {productCount > 4 && (
+                            <span className="text-[10px] text-slate-400 font-bold self-center">
+                              +{productCount - 4} more
                             </span>
                           )}
                         </div>
@@ -347,16 +503,25 @@ export default function DetailingCategoriesPage() {
                     </div>
 
                     {/* Card Actions */}
-                    <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                      <button
-                        onClick={() => {
-                          setSelectedCategoryFilter(cat.name);
-                          setActiveTab('doctors');
-                        }}
-                        className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                      >
-                        View Doctors <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="pt-4 mt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {/* Assign Doctors Button */}
+                        <button
+                          onClick={() => openAssignModal(cat)}
+                          className="text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1"
+                          title="Assign Doctors to this Category"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" /> Assign Doctors
+                        </button>
+
+                        {/* View in Digital Detailing */}
+                        <Link
+                          href={`/dashboard/digital-detailing?activeCategory=${cat.code || cat.name}`}
+                          className="text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-xl border border-purple-200 transition-colors flex items-center gap-1"
+                        >
+                          <Layers className="w-3.5 h-3.5" /> Slides
+                        </Link>
+                      </div>
 
                       <div className="flex items-center gap-1">
                         <button
@@ -367,7 +532,7 @@ export default function DetailingCategoriesPage() {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setDeletingId(cat.id)}
+                          onClick={() => setDeletingId(cat.id || cat.code)}
                           className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
                           title="Delete Category"
                         >
@@ -395,7 +560,7 @@ export default function DetailingCategoriesPage() {
               >
                 <option value="">All Categories ({categories?.length || 0})</option>
                 {(categories || []).map((cat: any) => (
-                  <option key={cat.id} value={cat.name}>
+                  <option key={cat.id || cat.code} value={cat.name}>
                     {cat.name}
                   </option>
                 ))}
@@ -419,17 +584,17 @@ export default function DetailingCategoriesPage() {
           </div>
 
           {/* Doctor Mapping List */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
-                    <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Doctor Code</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Doctor Name</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Current Category</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Specialty</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Headquarter</th>
-                    <th className="text-right px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Reassign</th>
+                    <th className="text-left px-4 py-3.5 font-semibold uppercase tracking-wider text-[11px]">Doctor Code</th>
+                    <th className="text-left px-4 py-3.5 font-semibold uppercase tracking-wider text-[11px]">Doctor Name</th>
+                    <th className="text-left px-4 py-3.5 font-semibold uppercase tracking-wider text-[11px]">Assigned Category</th>
+                    <th className="text-left px-4 py-3.5 font-semibold uppercase tracking-wider text-[11px]">Specialty</th>
+                    <th className="text-left px-4 py-3.5 font-semibold uppercase tracking-wider text-[11px]">Headquarter</th>
+                    <th className="text-right px-4 py-3.5 font-semibold uppercase tracking-wider text-[11px]">Detailing Slide Set & Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -452,12 +617,12 @@ export default function DetailingCategoriesPage() {
                   ) : (
                     doctorList.map((doc: any) => (
                       <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3.5">
                           <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                             {doc.doctorCode || '—'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3.5">
                           <span className="font-semibold text-slate-900">
                             Dr. {doc.firstName} {doc.lastName}
                           </span>
@@ -465,25 +630,36 @@ export default function DetailingCategoriesPage() {
                             <span className="text-[11px] text-slate-400 block">{doc.qualification}</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3.5">
                           <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80 text-xs">
                             {doc.category || doc.specialty || 'General'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 text-xs">{doc.specialty || '—'}</td>
-                        <td className="px-4 py-3 font-medium text-slate-700 text-xs">
+                        <td className="px-4 py-3.5 text-slate-600 text-xs">{doc.specialty || '—'}</td>
+                        <td className="px-4 py-3.5 font-medium text-slate-700 text-xs">
                           {doc.hq?.name || doc.territory?.name || 'Nagpur'}
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => {
-                              setReassigningDoctor(doc);
-                              setTargetCategory(doc.category || doc.specialty || '');
-                            }}
-                            className="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors border border-slate-200"
-                          >
-                            Change Category
-                          </button>
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Curate Slide Set */}
+                            <button
+                              onClick={() => setCuratingDoctor(doc)}
+                              className="text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-xl transition-colors border border-purple-200 flex items-center gap-1 shadow-xs"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Curate Slide Set
+                            </button>
+
+                            {/* Reassign Category */}
+                            <button
+                              onClick={() => {
+                                setReassigningDoctor(doc);
+                                setTargetCategory(doc.category || doc.specialty || '');
+                              }}
+                              className="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors border border-slate-200"
+                            >
+                              Category
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -495,7 +671,7 @@ export default function DetailingCategoriesPage() {
         </div>
       )}
 
-      {/* ──────────────── MODAL: CREATE / EDIT CATEGORY ──────────────── */}
+      {/* ──────────────── MODAL 1: CREATE / EDIT CATEGORY ──────────────── */}
       {(isNewCategoryModalOpen || editingCategory) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
@@ -688,7 +864,141 @@ export default function DetailingCategoriesPage() {
         </div>
       )}
 
-      {/* ──────────────── MODAL: DELETE CONFIRMATION ──────────────── */}
+      {/* ──────────────── MODAL 2: BATCH ASSIGN DOCTORS TO CATEGORY ──────────────── */}
+      {assignModalCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-emerald-600" />
+                  Assign Doctors to {assignModalCategory.name}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Select doctors who belong to this medical specialty ({selectedDoctorIds.length} assigned)
+                </p>
+              </div>
+              <button onClick={() => setAssignModalCategory(null)} className="p-1.5 rounded-xl hover:bg-slate-200">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Filter controls */}
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 justify-between">
+                <div className="relative flex-1 w-full">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={assignDoctorSearch}
+                    onChange={(e) => setAssignDoctorSearch(e.target.value)}
+                    placeholder="Search doctor by name, specialty, clinic, or city..."
+                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+                  <button
+                    onClick={() => setDoctorAssignmentFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      doctorAssignmentFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    All Doctors ({allDoctors.length})
+                  </button>
+                  <button
+                    onClick={() => setDoctorAssignmentFilter('selected')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      doctorAssignmentFilter === 'selected'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    Assigned ({selectedDoctorIds.length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Doctors Multi-select list */}
+              <div className="border border-slate-200 rounded-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 bg-slate-50/40">
+                {modalFilteredDoctors.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-slate-400">
+                    No doctors match current search
+                  </div>
+                ) : (
+                  modalFilteredDoctors.map((doc: any) => {
+                    const isChecked = selectedDoctorIds.includes(doc.id);
+                    return (
+                      <div
+                        key={doc.id}
+                        onClick={() => toggleDoctorSelection(doc.id)}
+                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
+                          isChecked ? 'bg-emerald-50/80' : 'hover:bg-slate-100/70'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                              isChecked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold text-slate-900">
+                              Dr. {doc.firstName} {doc.lastName}
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              {doc.specialty || 'General'} • {doc.hospital?.name || doc.city || 'Nagpur'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                          {doc.doctorCode || 'DOC'}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                <strong>{selectedDoctorIds.length}</strong> doctors assigned to {assignModalCategory.name}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAssignModalCategory(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveDoctorAssignments}
+                  disabled={isSavingAssignments}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {isSavingAssignments ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving Assignments...
+                    </>
+                  ) : (
+                    'Save Doctor Assignments'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────────── MODAL 3: DELETE CONFIRMATION ──────────────── */}
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 p-6 text-center">
@@ -719,7 +1029,7 @@ export default function DetailingCategoriesPage() {
         </div>
       )}
 
-      {/* ──────────────── MODAL: REASSIGN DOCTOR CATEGORY ──────────────── */}
+      {/* ──────────────── MODAL 4: REASSIGN DOCTOR CATEGORY ──────────────── */}
       {reassigningDoctor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
@@ -740,7 +1050,7 @@ export default function DetailingCategoriesPage() {
                   const isSelected = targetCategory === cat.name;
                   return (
                     <button
-                      key={cat.id}
+                      key={cat.id || cat.code}
                       onClick={() => setTargetCategory(cat.name)}
                       className={`w-full flex items-center justify-between p-3 rounded-xl border text-left text-xs transition-all ${
                         isSelected
@@ -778,6 +1088,17 @@ export default function DetailingCategoriesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ──────────────── MODAL 5: CURATE DOCTOR SLIDE DECK & PLAN ──────────────── */}
+      {curatingDoctor && (
+        <DoctorDetailingPlanModal
+          isOpen={!!curatingDoctor}
+          onClose={() => setCuratingDoctor(null)}
+          doctor={curatingDoctor}
+          allContents={allContents}
+          categories={categories}
+        />
       )}
     </div>
   );

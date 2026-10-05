@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+export const FILE_BASE = API_BASE.replace('/api/v1', '');
+
+export function resolveFileUrl(fileUrl?: string): string {
+  if (!fileUrl) return '';
+  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://') || fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
+    return fileUrl;
+  }
+  const clean = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
+  return `${FILE_BASE}${clean}`;
+}
 
 export const api = axios.create({
   baseURL: API_BASE,
