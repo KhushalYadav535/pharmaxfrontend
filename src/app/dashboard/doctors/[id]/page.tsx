@@ -26,9 +26,12 @@ import {
   Check,
   Loader2,
   Sparkles,
-  Play
+  Play,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth-context';
 import DoctorDetailingPlanModal, {
   DoctorDetailingPlan,
   getDoctorDetailingPlan
@@ -38,9 +41,13 @@ export default function DoctorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = ['SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'].includes(user?.role || '');
+
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [isDetailingPlanModalOpen, setIsDetailingPlanModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [doctorPlan, setDoctorPlan] = useState<DoctorDetailingPlan | null>(null);
 
   // Fetch Doctor details
@@ -86,6 +93,19 @@ export default function DoctorDetailPage() {
       qc.invalidateQueries({ queryKey: ['doctor', id] });
       qc.invalidateQueries({ queryKey: ['doctors'] });
       qc.invalidateQueries({ queryKey: ['approvals-summary'] });
+    },
+  });
+
+  // Mutation to delete doctor (Admin only)
+  const deleteDoctorMutation = useMutation({
+    mutationFn: () => api.delete(`/doctors/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['headquarters-list'] });
+      router.push('/dashboard/doctors');
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to delete doctor');
     },
   });
 
@@ -172,6 +192,16 @@ export default function DoctorDetailPage() {
           >
             <Edit2 className="w-4 h-4" /> Edit Doctor
           </Link>
+
+          {isAdmin && (
+            <button
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors shadow-sm"
+              title="Delete this doctor record"
+            >
+              <Trash2 className="w-4 h-4 text-rose-600" /> Delete Doctor
+            </button>
+          )}
         </div>
       </div>
 
@@ -452,6 +482,54 @@ export default function DoctorDetailPage() {
             setDoctorPlan(saved);
           }}
         />
+      )}
+
+      {/* ──────────────── MODAL: CONFIRM DELETE DOCTOR ──────────────── */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Doctor Profile?</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Dr. {data.firstName} {data.lastName} ({data.doctorCode || 'Doctor'})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                <AlertTriangle className="w-4 h-4 text-amber-600" /> Warning
+              </p>
+              <p>
+                Deleting this doctor will remove them from active field lists, MR tour plans, and doctor directories. Existing past visits and order records will be preserved for audit history.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={deleteDoctorMutation.isPending}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteDoctorMutation.mutate()}
+                disabled={deleteDoctorMutation.isPending}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {deleteDoctorMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Yes, Delete Doctor
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

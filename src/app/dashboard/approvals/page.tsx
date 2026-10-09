@@ -192,31 +192,31 @@ export default function ApprovalsPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-6 rounded-3xl text-white shadow-xl">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-2 border border-emerald-500/30">
-            <UserCheck className="w-3.5 h-3.5" /> Operations Command Desk
+      <div className="bg-gradient-to-br from-white via-emerald-50/40 to-teal-50/20 rounded-3xl p-6 sm:p-7 border border-emerald-200/70 shadow-xs relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2 shadow-2xs">
+            <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> Operations Command Desk
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Approvals & Audit Hub</h1>
-          <p className="text-slate-300 text-sm mt-1">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Approvals & Audit Hub</h1>
+          <p className="text-slate-600 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
             Review, audit, verify, and approve field activities, team claims, tour programs, orders, and newly registered doctors/entities.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start sm:self-center">
+        <div className="flex items-center gap-3 self-start sm:self-center relative z-10">
           <button
             onClick={() => { refetchSummary(); invalidateAll(); }}
-            className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10"
+            className="p-2.5 rounded-2xl bg-white hover:bg-slate-50 text-slate-700 transition-colors border border-slate-200 shadow-2xs"
             title="Refresh All Queues"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
-          <div className="bg-amber-500/20 border border-amber-400/40 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 text-amber-200">
+          <div className="bg-amber-50 border border-amber-300 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 text-amber-900 shadow-2xs">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
             </span>
-            <span className="text-sm font-bold tracking-wide">
+            <span className="text-xs sm:text-sm font-bold tracking-wide">
               {summary?.total || 0} Pending Actions
             </span>
           </div>

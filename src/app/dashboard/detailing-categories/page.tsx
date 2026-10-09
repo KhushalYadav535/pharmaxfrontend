@@ -317,32 +317,32 @@ export default function DetailingCategoriesPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-16">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 p-6 rounded-3xl text-white shadow-xl">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-2 border border-emerald-400/30">
-            <Sparkles className="w-3.5 h-3.5" /> Biocros Detailing Master Engine
+      <div className="bg-gradient-to-br from-white via-emerald-50/40 to-teal-50/20 rounded-3xl p-6 sm:p-7 border border-emerald-200/70 shadow-xs relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2 shadow-2xs">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> Biocros Detailing Master Engine
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Detailing & Doctor Categories Master
           </h1>
-          <p className="text-emerald-100/80 text-xs sm:text-sm mt-1">
+          <p className="text-slate-600 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
             Define doctor specialties, map Biocros medicines, curate detailing slide sets, and batch-assign field doctors.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 relative z-10 flex-wrap">
           <Link
             href="/dashboard/digital-detailing"
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2.5 rounded-xl transition-all text-xs sm:text-sm border border-white/20"
+            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2.5 rounded-xl transition-all text-xs sm:text-sm border border-slate-200 shadow-2xs"
           >
-            <Layers className="w-4 h-4 text-emerald-300" /> Digital Detailing Deck
+            <Layers className="w-4 h-4 text-emerald-600" /> Digital Detailing Deck
           </Link>
           <button
             onClick={() => {
               resetForm();
               setIsNewCategoryModalOpen(true);
             }}
-            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/25 text-xs sm:text-sm"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 text-xs sm:text-sm"
           >
             <Plus className="w-4 h-4" /> Create Category
           </button>

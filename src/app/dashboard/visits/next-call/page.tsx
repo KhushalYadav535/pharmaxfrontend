@@ -315,44 +315,44 @@ export default function NextCallConsolePage() {
 
       {/* ── HERO NEXT-CALL SPOTLIGHT ── */}
       {activeCall ? (
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden border border-slate-700">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="bg-gradient-to-br from-white via-emerald-50/40 to-teal-50/20 text-slate-900 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden border border-emerald-200/80">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3 max-w-2xl">
               <div className="flex items-center gap-2.5">
-                <span className="bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-slate-950 animate-ping" />
+                <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                   Up Next · Action Required
                 </span>
-                <span className="text-xs text-slate-300 font-bold flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
                   Planned: {formatVisitTime(activeCall.plannedDate)}
                 </span>
               </div>
 
               <div>
-                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                   {getVisitDisplayName(activeCall)}
                 </h2>
-                <p className="text-sm text-emerald-300 font-semibold mt-0.5">
+                <p className="text-sm text-emerald-700 font-semibold mt-0.5">
                   {getVisitDisplaySub(activeCall)}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300 pt-1">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 pt-1">
                 {activeCall.doctor?.clinicAddress && (
                   <span className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                    <MapPin className="w-3.5 h-3.5 text-rose-500" />
                     {activeCall.doctor.clinicAddress}
                   </span>
                 )}
                 {activeCall.doctor?.phone && (
                   <span className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-sky-400" />
+                    <Phone className="w-3.5 h-3.5 text-sky-600" />
                     {activeCall.doctor.phone}
                   </span>
                 )}
-                <span className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 font-medium text-[11px]">
+                <span className="bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 font-medium text-[11px]">
                   Status: {activeCall.status}
                 </span>
               </div>
@@ -364,7 +364,7 @@ export default function NextCallConsolePage() {
                 <button
                   onClick={() => handleTriggerCheckIn(activeCall)}
                   disabled={checkInMutation.isPending}
-                  className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black px-5 py-3 rounded-2xl transition-all shadow-lg active:scale-98"
+                  className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-5 py-3 rounded-2xl transition-all shadow-md shadow-emerald-600/20 active:scale-98"
                 >
                   <Navigation className="w-4 h-4" />
                   GPS Check-In & Start
@@ -372,7 +372,7 @@ export default function NextCallConsolePage() {
               ) : (
                 <Link
                   href={`/dashboard/visits/${activeCall.id}`}
-                  className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-5 py-3 rounded-2xl transition-all shadow-lg"
+                  className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-5 py-3 rounded-2xl transition-all shadow-md"
                 >
                   <Play className="w-4 h-4" />
                   Complete Call Report
@@ -382,9 +382,9 @@ export default function NextCallConsolePage() {
               {activeCall.visitType === 'DOCTOR' && activeCall.doctorId && (
                 <Link
                   href={`/dashboard/digital-detailing?doctorId=${activeCall.doctorId}&visitId=${activeCall.id}`}
-                  className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold px-5 py-2.5 rounded-2xl transition-all"
+                  className="flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-5 py-2.5 rounded-2xl transition-all shadow-2xs"
                 >
-                  <Presentation className="w-4 h-4 text-emerald-400" />
+                  <Presentation className="w-4 h-4 text-emerald-600" />
                   Launch Detailing Deck
                 </Link>
               )}
@@ -392,13 +392,13 @@ export default function NextCallConsolePage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleOpenReschedule(activeCall)}
-                  className="flex-1 text-center py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold rounded-xl border border-slate-700 transition-colors"
+                  className="flex-1 text-center py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-xl border border-slate-200 transition-colors"
                 >
                   Reschedule
                 </button>
                 <button
                   onClick={() => handleOpenCancel(activeCall)}
-                  className="flex-1 text-center py-2 px-3 bg-rose-950/40 hover:bg-rose-950 text-rose-300 text-[11px] font-bold rounded-xl border border-rose-900/60 transition-colors"
+                  className="flex-1 text-center py-2 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-bold rounded-xl border border-rose-200 transition-colors"
                 >
                   Cancel / Missed
                 </button>

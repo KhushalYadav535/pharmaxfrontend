@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Target, CheckCircle, Clock, MapPin, Navigation2, Phone,
   ChevronRight, Bell, ShoppingCart, Package,
@@ -7,10 +8,11 @@ import {
   FlaskConical, DollarSign, Plane, Star, MoreHorizontal,
   Stethoscope, Building2, Store, Truck, Zap,
   AlertCircle, ArrowUpRight, CheckCircle2, SlidersHorizontal,
-  Users, Layers, RefreshCw, ShieldCheck, TrendingUp
+  Users, Layers, RefreshCw, ShieldCheck, TrendingUp, Sparkles,
+  BarChart3, Eye, ArrowRight, Check
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -18,10 +20,9 @@ import {
   useVisitStats,
   useDoctorStats,
   useRecentVisits,
-  useRetailerCoverage,
   useOrderStats,
-  deriveAlerts,
 } from '@/lib/dashboard.api';
+import DashboardCharts from '@/components/dashboard/DashboardCharts';
 
 function getFormattedDate() {
   return new Intl.DateTimeFormat('en-IN', {
@@ -31,6 +32,10 @@ function getFormattedDate() {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const isAdminOrManager = ['SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN', 'NSM', 'ZM', 'RSM', 'ASM'].includes(user?.role || '');
 
   // Live Approvals Summary
@@ -41,370 +46,681 @@ export default function DashboardPage() {
   });
 
   // Doctor stats & Headquarters
-  const { data: hqList } = useQuery({
+  const { data: hqList, refetch: refetchHq } = useQuery({
     queryKey: ['headquarters-overview'],
     queryFn: () => api.get('/headquarters').then((r) => r.data.data),
   });
   const headquarters = Array.isArray(hqList) ? hqList : hqList?.headquarters || [];
 
-  const { data: doctorsOverview } = useQuery({
+  const { data: doctorsOverview, refetch: refetchDoctors } = useQuery({
     queryKey: ['doctors-count-overview'],
     queryFn: () => api.get('/doctors', { params: { limit: 1 } }).then((r) => r.data.data),
   });
 
-  const { data: visitStats } = useVisitStats();
+  const { data: visitStats, refetch: refetchVisits } = useVisitStats();
   const { data: doctorStats } = useDoctorStats();
-  const { data: recentVisits } = useRecentVisits();
+  const { data: recentVisits, refetch: refetchRecent } = useRecentVisits();
   const { data: orderStats } = useOrderStats();
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      refetchApprovals(),
+      refetchHq(),
+      refetchDoctors(),
+      refetchVisits(),
+      refetchRecent(),
+      queryClient.invalidateQueries({ queryKey: ['visit-trend'] }),
+      queryClient.invalidateQueries({ queryKey: ['order-stats-dash'] }),
+      queryClient.invalidateQueries({ queryKey: ['doctor-classification'] }),
+    ]);
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   const planned = visitStats?.totalPlanned ?? 8;
   const completed = visitStats?.totalCompleted ?? 3;
   const remaining = Math.max(0, planned - completed);
+  const coverageRatio = planned > 0 ? Math.min(100, Math.round((completed / planned) * 100)) : 100;
 
   const pendingTotal = approvalSummary?.total || 0;
 
   return (
-    <div className="min-h-full space-y-6 pb-12" style={{ background: '#F8FAFC' }}>
-      {/* ── Day Dashboard Topbar ─────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-4 bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.03)] gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-md shadow-emerald-600/20">
-            PX
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-slate-900 leading-tight">
-              {isAdminOrManager ? 'Executive Operations Command Desk' : 'Field Day Dashboard'}
-            </h1>
-            <p className="text-xs text-slate-500">{getFormattedDate()} · Biocros Healthcare</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 self-end sm:self-center">
-          {pendingTotal > 0 && (
-            <Link
-              href="/dashboard/approvals"
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-300/80 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors shadow-sm animate-pulse"
-            >
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span>{pendingTotal} Pending Approvals</span>
-            </Link>
-          )}
-
-          <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
-            <div className="text-right">
-              <p className="text-xs font-bold text-slate-900 leading-tight">
-                {user?.firstName ? `${user.firstName} ${user.lastName}` : 'Administrator'}
+    <div className="min-h-full bg-slate-50/70 space-y-6 pb-16">
+      {/* ── Topbar: Clean Light Glassmorphic Header ─────────────────────────── */}
+      <div className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-black text-sm shadow-md shadow-emerald-600/20">
+              PX
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-extrabold text-slate-900 tracking-tight leading-tight">
+                  {isAdminOrManager ? 'Executive Operations Command Desk' : 'Field Force Day Desk'}
+                </h1>
+                <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Sync
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                <Calendar className="w-3 h-3 text-slate-400" />
+                <span>{getFormattedDate()}</span>
+                <span>·</span>
+                <span className="font-semibold text-slate-600">Biocros Healthcare</span>
               </p>
-              <p className="text-[10px] text-emerald-700 font-semibold">{user?.role || 'SUPER_ADMIN'}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shadow-sm">
-              {user?.firstName ? user.firstName[0] + (user.lastName?.[0] ?? '') : 'AD'}
+          </div>
+
+          <div className="flex items-center gap-2.5 self-end sm:self-center flex-wrap">
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeTab === 'overview'
+                    ? 'bg-white text-emerald-800 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Overview Desk
+              </button>
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                  activeTab === 'analytics'
+                    ? 'bg-white text-emerald-800 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Analytics & Charts</span>
+              </button>
             </div>
+
+            {/* Quick Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              title="Refresh all metrics"
+              className="p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 shadow-2xs transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
+            </button>
+
+            {/* Pending Approvals Pill */}
+            {pendingTotal > 0 && (
+              <Link
+                href="/dashboard/approvals"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold hover:bg-amber-100 transition-colors shadow-2xs"
+              >
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
+                <span>{pendingTotal} Pending Actions</span>
+              </Link>
+            )}
+
+            {/* User Profile Chip */}
+            <Link
+              href="/dashboard/profile"
+              className="flex items-center gap-2.5 pl-2.5 sm:border-l sm:border-slate-200 hover:opacity-85 transition-opacity"
+            >
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-slate-900 leading-tight">
+                  {user?.firstName ? `${user.firstName} ${user.lastName}` : 'Administrator'}
+                </p>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60">
+                  {user?.role || 'SUPER_ADMIN'}
+                </span>
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center text-xs font-black shadow-xs ring-2 ring-emerald-50">
+                {user?.firstName ? user.firstName[0] + (user.lastName?.[0] ?? '') : 'AD'}
+              </div>
+            </Link>
           </div>
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 space-y-6">
         {/* ══════════════════════════════════════════════════════════════════
-            ADMIN & MANAGER COMMAND BANNER: LIVE APPROVAL QUEUE
+            LIGHT HERO: OPERATIONS AUDIT & APPROVAL COMMAND HUB
         ══════════════════════════════════════════════════════════════════ */}
         {isAdminOrManager && (
-          <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 rounded-3xl p-6 text-white shadow-xl border border-slate-800 relative overflow-hidden">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="bg-gradient-to-br from-white via-emerald-50/40 to-teal-50/20 rounded-3xl p-6 sm:p-7 border border-emerald-200/70 shadow-xs relative overflow-hidden">
+            {/* Ambient Background Accents */}
+            <div className="absolute -right-16 -top-16 w-80 h-80 bg-emerald-200/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -left-16 -bottom-16 w-80 h-80 bg-teal-200/20 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="space-y-2 max-w-xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Operations Audit Desk
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider shadow-2xs">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Operations Audit & Control Hub</span>
                 </div>
-                <h2 className="text-2xl font-bold tracking-tight">Field Force Approvals & Audit Hub</h2>
-                <p className="text-slate-300 text-xs sm:text-sm">
-                  Review and verify doctor visit calls, travel reimbursements, monthly tour plans, chemist orders, and doctor registrations across all territories.
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Field Force Approvals & Audit Hub
+                </h2>
+                <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                  Real-time audit desk for verifying doctor visit calls, field expense reimbursements, monthly tour plans (MTP), chemist supply orders, and territory registrations.
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <Link
                   href="/dashboard/approvals"
-                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm px-5 py-3 rounded-2xl transition-all shadow-lg shadow-emerald-500/20"
+                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-xl transition-all shadow-md shadow-emerald-600/20"
                 >
-                  <CheckCircle2 className="w-4 h-4" /> Open Approval Hub ({pendingTotal})
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Open Approvals Hub ({pendingTotal})</span>
                 </Link>
+
+                <Link
+                  href="/dashboard/visits/monitor"
+                  className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm px-4 py-3 rounded-xl transition-colors border border-slate-200 shadow-2xs"
+                >
+                  <Activity className="w-4 h-4 text-emerald-600" />
+                  <span>Live Field Monitor</span>
+                </Link>
+
                 <Link
                   href="/dashboard/detailing-categories"
-                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm px-4 py-3 rounded-2xl transition-colors border border-white/15"
+                  className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm px-4 py-3 rounded-xl transition-colors border border-slate-200 shadow-2xs"
                 >
-                  <SlidersHorizontal className="w-4 h-4" /> Detailing Master
+                  <SlidersHorizontal className="w-4 h-4 text-purple-600" />
+                  <span>Detailing Master</span>
                 </Link>
               </div>
             </div>
 
-            {/* Quick Pending Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6 pt-6 border-t border-white/10">
-              <Link href="/dashboard/approvals" className="bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/10 transition-colors">
-                <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block">Visits</span>
-                <span className="text-xl font-extrabold text-blue-400 mt-1 block">{approvalSummary?.pendingVisits || 0}</span>
-                <span className="text-[10px] text-slate-400">Calls waiting audit</span>
+            {/* The 6 Light Queue Metric Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 mt-6 pt-6 border-t border-emerald-100/80 relative z-10">
+              {/* 1. Doctor Visits */}
+              <Link
+                href="/dashboard/approvals"
+                className="bg-white hover:bg-blue-50/40 p-4 rounded-2xl border border-blue-100/90 hover:border-blue-300 transition-all group shadow-2xs hover:shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-blue-900 font-bold uppercase tracking-wider block">Visits</span>
+                  <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-blue-700 mt-2 block tracking-tight">
+                  {approvalSummary?.pendingVisits || 0}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Calls waiting audit</span>
               </Link>
 
-              <Link href="/dashboard/approvals" className="bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/10 transition-colors">
-                <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block">Expenses</span>
-                <span className="text-xl font-extrabold text-amber-400 mt-1 block">{approvalSummary?.pendingExpenses || 0}</span>
-                <span className="text-[10px] text-slate-400">Claims to reimburse</span>
+              {/* 2. Expenses Claims */}
+              <Link
+                href="/dashboard/approvals"
+                className="bg-white hover:bg-amber-50/40 p-4 rounded-2xl border border-amber-100/90 hover:border-amber-300 transition-all group shadow-2xs hover:shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-amber-900 font-bold uppercase tracking-wider block">Expenses</span>
+                  <div className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <DollarSign className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-amber-700 mt-2 block tracking-tight">
+                  {approvalSummary?.pendingExpenses || 0}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Claims to reimburse</span>
               </Link>
 
-              <Link href="/dashboard/approvals" className="bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/10 transition-colors">
-                <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block">Tour Plans</span>
-                <span className="text-xl font-extrabold text-purple-400 mt-1 block">{approvalSummary?.pendingTourPlans || 0}</span>
-                <span className="text-[10px] text-slate-400">Programs submitted</span>
+              {/* 3. Monthly Tour Plans */}
+              <Link
+                href="/dashboard/approvals"
+                className="bg-white hover:bg-purple-50/40 p-4 rounded-2xl border border-purple-100/90 hover:border-purple-300 transition-all group shadow-2xs hover:shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-purple-900 font-bold uppercase tracking-wider block">Tour Plans</span>
+                  <div className="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Calendar className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-purple-700 mt-2 block tracking-tight">
+                  {approvalSummary?.pendingTourPlans || 0}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">MTP submitted</span>
               </Link>
 
-              <Link href="/dashboard/approvals" className="bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/10 transition-colors">
-                <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block">Leaves</span>
-                <span className="text-xl font-extrabold text-rose-400 mt-1 block">{approvalSummary?.pendingLeaves || 0}</span>
-                <span className="text-[10px] text-slate-400">Applications</span>
+              {/* 4. Leaves Requests */}
+              <Link
+                href="/dashboard/approvals"
+                className="bg-white hover:bg-rose-50/40 p-4 rounded-2xl border border-rose-100/90 hover:border-rose-300 transition-all group shadow-2xs hover:shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-rose-900 font-bold uppercase tracking-wider block">Leaves</span>
+                  <div className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Clock className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-rose-700 mt-2 block tracking-tight">
+                  {approvalSummary?.pendingLeaves || 0}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Leave requests</span>
               </Link>
 
-              <Link href="/dashboard/approvals" className="bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/10 transition-colors">
-                <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block">Orders</span>
-                <span className="text-xl font-extrabold text-emerald-400 mt-1 block">{approvalSummary?.pendingOrders || 0}</span>
-                <span className="text-[10px] text-slate-400">Pending dispatch</span>
+              {/* 5. Primary Orders */}
+              <Link
+                href="/dashboard/approvals"
+                className="bg-white hover:bg-emerald-50/40 p-4 rounded-2xl border border-emerald-100/90 hover:border-emerald-300 transition-all group shadow-2xs hover:shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-emerald-900 font-bold uppercase tracking-wider block">Orders</span>
+                  <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-emerald-700 mt-2 block tracking-tight">
+                  {approvalSummary?.pendingOrders || 0}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Chemist dispatches</span>
               </Link>
 
-              <Link href="/dashboard/approvals" className="bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/10 transition-colors">
-                <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block">New Records</span>
-                <span className="text-xl font-extrabold text-indigo-400 mt-1 block">{approvalSummary?.pendingEntities || 0}</span>
-                <span className="text-[10px] text-slate-400">Doctors / Clinics</span>
+              {/* 6. New Records / Doctors */}
+              <Link
+                href="/dashboard/approvals"
+                className="bg-white hover:bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100/90 hover:border-indigo-300 transition-all group shadow-2xs hover:shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-indigo-900 font-bold uppercase tracking-wider block">New Doctors</span>
+                  <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-2xl font-black text-indigo-700 mt-2 block tracking-tight">
+                  {approvalSummary?.pendingEntities || 0}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">New verifications</span>
               </Link>
             </div>
           </div>
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
-            TERRITORY & DOCTOR CRM EXECUTIVE CARDS
+            EXECUTIVE KPI METRIC CARDS (4 PILLARS)
         ══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 hover:border-emerald-300 transition-all">
+          {/* Card 1: Total Doctor Network */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm hover:border-emerald-300 transition-all p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Doctor Network</span>
-              <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
                 <Users className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-black text-slate-900 mt-2">
-              {doctorsOverview?.total ?? 50} Doctors
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2.5 tracking-tight">
+              {doctorsOverview?.total ?? 50} <span className="text-base font-semibold text-slate-500">Doctors</span>
             </p>
-            <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
-              <span>All 50 Nagpur Doctors Active</span>
-              <Link href="/dashboard/doctors" className="text-emerald-700 font-bold hover:underline">
-                View CRM &rarr;
+            <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-2.5 border-t border-slate-100">
+              <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> 50 Nagpur Doctors Active
+              </span>
+              <Link href="/dashboard/doctors" className="text-emerald-700 font-bold hover:underline flex items-center gap-0.5">
+                <span>View CRM</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 hover:border-blue-300 transition-all">
+          {/* Card 2: Active Headquarters */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm hover:border-sky-300 transition-all p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Headquarters</span>
-              <div className="p-2 bg-blue-50 text-blue-700 rounded-xl">
+              <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 border border-sky-100 flex items-center justify-center">
                 <Building2 className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-black text-slate-900 mt-2">
-              {headquarters.length || 5} Territories
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2.5 tracking-tight">
+              {headquarters.length || 5} <span className="text-base font-semibold text-slate-500">Territories</span>
             </p>
-            <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
-              <span>Nagpur, Indore, Burhanpur...</span>
-              <Link href="/dashboard/masters/headquarters" className="text-blue-700 font-bold hover:underline">
-                Manage &rarr;
+            <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-2.5 border-t border-slate-100">
+              <span className="truncate max-w-[170px]" title="Nagpur, Indore, Burhanpur, Wardha">
+                Nagpur, Indore, Burhanpur...
+              </span>
+              <Link href="/dashboard/masters/headquarters" className="text-sky-700 font-bold hover:underline flex items-center gap-0.5 shrink-0">
+                <span>Manage</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 hover:border-amber-300 transition-all">
+          {/* Card 3: Primary Sales & Orders */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm hover:border-amber-300 transition-all p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Primary Sales & Targets</span>
-              <div className="p-2 bg-amber-50 text-amber-700 rounded-xl">
-                <ShoppingCart className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-black text-slate-900 mt-2">₹12,48,000</p>
-            <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
-              <span className="text-emerald-700 font-bold">+18% MoM Growth</span>
-              <Link href="/dashboard/orders" className="text-amber-700 font-bold hover:underline">
-                Orders &rarr;
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2.5 tracking-tight">
+              ₹12,48,000
+            </p>
+            <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-2.5 border-t border-slate-100">
+              <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                +18.4% MoM
+              </span>
+              <Link href="/dashboard/orders" className="text-amber-700 font-bold hover:underline flex items-center gap-0.5">
+                <span>Orders</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 hover:border-purple-300 transition-all">
+          {/* Card 4: Detailing Master */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm hover:border-purple-300 transition-all p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Detailing Catalog</span>
-              <div className="p-2 bg-purple-50 text-purple-700 rounded-xl">
+              <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center">
                 <SlidersHorizontal className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-black text-slate-900 mt-2">8 Categories</p>
-            <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2.5 tracking-tight">
+              8 <span className="text-base font-semibold text-slate-500">Categories</span>
+            </p>
+            <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-2.5 border-t border-slate-100">
               <span>Dynamic Specialty Deck</span>
-              <Link href="/dashboard/detailing-categories" className="text-purple-700 font-bold hover:underline">
-                Setup &rarr;
+              <Link href="/dashboard/detailing-categories" className="text-purple-700 font-bold hover:underline flex items-center gap-0.5">
+                <span>Setup</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════
-            ROW 2: Field Force Call Execution + Quick Command Desk
+            TAB VIEW: ANALYTICS & CHARTS
         ══════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
-          {/* TODAY'S MISSION */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
-                  <Target className="w-3.5 h-3.5" />
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Field Call & Activity Metrics
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider">
+                  Field Analytics & Trend Visualizer
                 </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Monthly visit cadence, order fulfillment pipeline, and doctor territory classification.
+                </p>
               </div>
-              <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                Live Field Sync
-              </span>
+              <button
+                onClick={() => setActiveTab('overview')}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200"
+              >
+                Back to Desk &rarr;
+              </button>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-center">
-                <span className="text-xs text-slate-400 font-medium block">Planned Calls</span>
-                <span className="text-xl font-bold text-slate-900 mt-1 block">{planned}</span>
-              </div>
-              <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-100 text-center">
-                <span className="text-xs text-emerald-800 font-medium block">Calls Completed</span>
-                <span className="text-xl font-bold text-emerald-700 mt-1 block">{completed}</span>
-              </div>
-              <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-100 text-center">
-                <span className="text-xs text-amber-800 font-medium block">Remaining Calls</span>
-                <span className="text-xl font-bold text-amber-600 mt-1 block">{remaining}</span>
-              </div>
-              <div className="bg-blue-50/60 p-3.5 rounded-xl border border-blue-100 text-center">
-                <span className="text-xs text-blue-800 font-medium block">Coverage Ratio</span>
-                <span className="text-xl font-bold text-blue-600 mt-1 block">
-                  {planned > 0 ? `${Math.round((completed / planned) * 100)}%` : '100%'}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Recent Field Visits Logged
-              </h4>
-              {recentVisits && recentVisits.length > 0 ? (
-                <div className="space-y-2">
-                  {recentVisits.slice(0, 4).map((v: any) => (
-                    <div key={v.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                      <div>
-                        <span className="font-bold text-slate-900">
-                          {v.doctor ? `Dr. ${v.doctor.firstName} ${v.doctor.lastName}` : v.retailer?.name || 'Client'}
-                        </span>
-                        <span className="text-slate-400 text-[11px] block">
-                          By {v.user?.firstName} {v.user?.lastName} · {formatDate(v.plannedDate || v.checkInTime)}
-                        </span>
-                      </div>
-                      <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                        {v.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 py-4 text-center">No recent visits recorded today.</p>
-              )}
-            </div>
+            <DashboardCharts />
           </div>
-
-          {/* QUICK COMMAND SHORTCUTS */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">
-                Admin Management Quick Links
-              </h3>
-              <div className="space-y-2">
-                <Link
-                  href="/dashboard/approvals"
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 text-slate-800 transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs font-bold">Approvals Queue</span>
-                  </div>
-                  {pendingTotal > 0 && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                      {pendingTotal}
-                    </span>
-                  )}
-                </Link>
-
-                <Link
-                  href="/dashboard/doctors"
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 text-slate-800 transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Users className="w-4 h-4 text-blue-600" />
-                    <span className="text-xs font-bold">Doctor CRM (Nagpur & HQ)</span>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-700" />
-                </Link>
-
-                <Link
-                  href="/dashboard/detailing-categories"
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 text-slate-800 transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <SlidersHorizontal className="w-4 h-4 text-purple-600" />
-                    <span className="text-xs font-bold">Detailing & Medicine Master</span>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-700" />
-                </Link>
-
-                <Link
-                  href="/dashboard/orders"
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 text-slate-800 transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <ShoppingCart className="w-4 h-4 text-amber-600" />
-                    <span className="text-xs font-bold">Primary Sales Orders</span>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-700" />
-                </Link>
-
-                <Link
-                  href="/dashboard/masters/headquarters"
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 text-slate-800 transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Building2 className="w-4 h-4 text-cyan-600" />
-                    <span className="text-xs font-bold">Headquarter & Territory Master</span>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-700" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════
-            HEADQUARTER TERRITORIAL CENSUS (DOCTOR & HOSPITAL BREAKDOWN)
+            OVERVIEW TAB CONTENT: FIELD TELEMETRY & COMMAND DESK
         ══════════════════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
+            {/* LEFT: TODAY'S FIELD CALL TELEMETRY */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center font-bold">
+                    <Target className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                      Field Call & Activity Metrics
+                    </h3>
+                    <p className="text-xs text-slate-500">Live doctor coverage and execution telemetry</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Sync
+                </span>
+              </div>
+
+              {/* 4 Call Metric Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70 text-center">
+                  <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Planned Calls</span>
+                  <span className="text-2xl font-black text-slate-900 mt-1.5 block">{planned}</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Scheduled today</span>
+                </div>
+                <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/70 text-center">
+                  <span className="text-xs text-emerald-800 font-bold uppercase tracking-wider block">Completed</span>
+                  <span className="text-2xl font-black text-emerald-700 mt-1.5 block">{completed}</span>
+                  <span className="text-[10px] text-emerald-600 font-medium mt-0.5 block">Reports filed</span>
+                </div>
+                <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/70 text-center">
+                  <span className="text-xs text-amber-800 font-bold uppercase tracking-wider block">Remaining</span>
+                  <span className="text-2xl font-black text-amber-700 mt-1.5 block">{remaining}</span>
+                  <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Calls in pipeline</span>
+                </div>
+                <div className="bg-sky-50/70 p-4 rounded-2xl border border-sky-200/70 text-center">
+                  <span className="text-xs text-sky-800 font-bold uppercase tracking-wider block">Coverage Ratio</span>
+                  <span className="text-2xl font-black text-sky-700 mt-1.5 block">{coverageRatio}%</span>
+                  <span className="text-[10px] text-sky-600 font-medium mt-0.5 block">Efficiency</span>
+                </div>
+              </div>
+
+              {/* Visual Multi-Segment Progress Bar */}
+              <div className="space-y-2 p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-700">Today's Call Target Fulfillment</span>
+                  <span className="font-extrabold text-emerald-700">{completed} of {planned} calls completed ({coverageRatio}%)</span>
+                </div>
+                <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden flex">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                    style={{ width: `${coverageRatio}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Done ({completed})
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-300" /> Pending ({remaining})
+                  </span>
+                </div>
+              </div>
+
+              {/* Recent Field Visits Feed */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Recent Field Calls Logged</span>
+                  </h4>
+                  <Link href="/dashboard/visits/monitor" className="text-xs font-bold text-emerald-700 hover:underline">
+                    Live GPS Monitor &rarr;
+                  </Link>
+                </div>
+
+                {recentVisits && recentVisits.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {recentVisits.slice(0, 4).map((v: any) => (
+                      <div
+                        key={v.id}
+                        className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200/80 hover:border-emerald-300 transition-colors shadow-2xs text-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs">
+                            {v.doctor ? 'DR' : 'CH'}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 text-sm block">
+                              {v.doctor ? `Dr. ${v.doctor.firstName} ${v.doctor.lastName}` : v.retailer?.name || 'Client'}
+                            </span>
+                            <span className="text-slate-500 text-[11px] flex items-center gap-1 mt-0.5">
+                              <span>By {v.user?.firstName} {v.user?.lastName}</span>
+                              <span>·</span>
+                              <span>{formatDate(v.plannedDate || v.checkInTime)}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className={`font-bold px-2.5 py-1 rounded-lg border text-[11px] ${
+                          v.status === 'REPORTED' || v.status === 'COMPLETED'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : v.status === 'DETAILING' || v.status === 'CHECKED_IN'
+                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
+                          {v.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center rounded-2xl bg-slate-50 border border-slate-200/60">
+                    <Target className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs font-medium text-slate-500">No recent visits recorded today.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT: ADMIN MANAGEMENT COMMAND SHORTCUTS */}
+            <div className="space-y-4">
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 sm:p-6 space-y-4">
+                <div>
+                  <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
+                    Admin Command Desk
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Quick access to key operational hubs</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Link
+                    href="/dashboard/approvals"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Approvals Queue</span>
+                    </div>
+                    {pendingTotal > 0 && (
+                      <span className="text-[10px] font-black px-2 py-0.5 bg-amber-100 text-amber-900 rounded-full border border-amber-200">
+                        {pendingTotal}
+                      </span>
+                    )}
+                  </Link>
+
+                  <Link
+                    href="/dashboard/doctors"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-blue-100/80 text-blue-700 flex items-center justify-center">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Doctor CRM Directory</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  <Link
+                    href="/dashboard/detailing-categories"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-purple-100/80 text-purple-700 flex items-center justify-center">
+                        <SlidersHorizontal className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Detailing & Medicine Master</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  <Link
+                    href="/dashboard/orders"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center">
+                        <ShoppingCart className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Primary Sales Orders</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  <Link
+                    href="/dashboard/masters/headquarters"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-cyan-100/80 text-cyan-700 flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Territory Headquarters</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  <Link
+                    href="/dashboard/visits/monitor"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-rose-100/80 text-rose-700 flex items-center justify-center">
+                        <Activity className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Live Field GPS Monitor</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  <Link
+                    href="/dashboard/retailers"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center">
+                        <Store className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Retail Chemists Directory</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  <Link
+                    href="/dashboard/hospitals"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-100/80 text-indigo-700 flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">Hospitals & Clinics</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+            HEADQUARTER TERRITORIAL CENSUS (DOCTORS, HOSPITALS, CHEMISTS)
+        ══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-2xs space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-base font-bold text-slate-900">Headquarter Territory Census</h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-black border border-emerald-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900">Headquarter Territory Census</h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
                   Doctor & Hospital Breakdown
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Territorial overview — see how many active doctors, hospitals, retail chemists, and field reps are in each headquarter.
+                Territorial breakdown of active doctors, hospitals, retail chemists, and field reps across all headquarters.
               </p>
             </div>
 
@@ -421,60 +737,60 @@ export default function DashboardPage() {
             {headquarters.map((hq: any) => (
               <div
                 key={hq.id}
-                className="p-4 rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:bg-emerald-50/20 transition-all bg-slate-50/50 space-y-3.5"
+                className="p-5 rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:bg-emerald-50/20 transition-all bg-slate-50/50 space-y-4 shadow-2xs"
               >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-black text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      <span className="font-mono text-xs font-black text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200">
                         {hq.code}
                       </span>
-                      <span className="font-bold text-sm text-slate-900">{hq.name}</span>
+                      <span className="font-extrabold text-sm text-slate-900">{hq.name}</span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-slate-400" />
-                      {hq.district || hq.state} {hq.region ? `· ${hq.region}` : ''}
+                      <span>{hq.district || hq.state} {hq.region ? `· ${hq.region}` : ''}</span>
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-slate-200/60">
+                <div className="grid grid-cols-3 gap-2.5 text-center pt-2 border-t border-slate-200/70">
                   <Link
                     href={`/dashboard/doctors?hqId=${hq.id}`}
-                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 transition-colors group"
+                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-2xs transition-all group"
                     title={`View all doctors in ${hq.name}`}
                   >
                     <span className="text-lg font-black text-emerald-700 block group-hover:scale-105 transition-transform">
                       {hq._count?.doctors ?? 0}
                     </span>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mt-0.5">
-                      Doctors →
+                      Doctors &rarr;
                     </span>
                   </Link>
 
                   <Link
                     href={`/dashboard/hospitals?hqId=${hq.id}`}
-                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-sky-400 transition-colors group"
+                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-sky-400 hover:shadow-2xs transition-all group"
                     title={`View hospitals in ${hq.name}`}
                   >
                     <span className="text-lg font-black text-sky-700 block group-hover:scale-105 transition-transform">
                       {hq._count?.hospitals ?? 0}
                     </span>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mt-0.5">
-                      Hospitals →
+                      Hospitals &rarr;
                     </span>
                   </Link>
 
                   <Link
                     href={`/dashboard/retailers?hqId=${hq.id}`}
-                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-amber-400 transition-colors group"
+                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-amber-400 hover:shadow-2xs transition-all group"
                     title={`View retail chemists in ${hq.name}`}
                   >
                     <span className="text-lg font-black text-amber-700 block group-hover:scale-105 transition-transform">
                       {hq._count?.retailers ?? 0}
                     </span>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mt-0.5">
-                      Chemists →
+                      Chemists &rarr;
                     </span>
                   </Link>
                 </div>
