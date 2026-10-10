@@ -16,6 +16,49 @@ import {
 } from 'lucide-react';
 import EmployeeForm from '@/components/masters/EmployeeForm';
 
+function formatDateTime(d: string | Date | null | undefined): string {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return '—';
+    return dt.toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+  } catch {
+    return '—';
+  }
+}
+
+function formatTimeOnly(d: string | Date | null | undefined): string {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return '—';
+    return dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  } catch {
+    return '—';
+  }
+}
+
+function formatTimeAgo(d: string | Date | null | undefined): string {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return '—';
+    const diffSec = Math.floor((Date.now() - dt.getTime()) / 1000);
+    if (diffSec < 60) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h ${diffMin % 60}m ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  } catch {
+    return '—';
+  }
+}
+
 export default function EmployeeDossierPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -261,61 +304,213 @@ export default function EmployeeDossierPage() {
       </div>
 
       {/* ── TAB 1: OVERVIEW ── */}
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-emerald-600" /> Organizational Hierarchy
-            </h2>
+      {activeTab === 'overview' && (() => {
+        const lastLogin = emp.lastLoginAt ? new Date(emp.lastLoginAt) : null;
+        const lastLogout = emp.lastLogoutAt ? new Date(emp.lastLogoutAt) : null;
+        const lastActive = emp.lastActiveAt ? new Date(emp.lastActiveAt) : null;
+        const now = new Date();
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="font-semibold text-slate-500">Designation / Role</span>
-                <span className="font-bold text-slate-900">{formatRole(emp.role)}</span>
+        const isExplicitLogout = !!(lastLogout && lastLogin && lastLogout.getTime() > lastLogin.getTime());
+        const diffActiveMin = lastActive ? Math.floor((now.getTime() - lastActive.getTime()) / 60000) : 99999;
+        const diffLoginHours = lastLogin ? (now.getTime() - lastLogin.getTime()) / 3600000 : 99999;
+
+        let sessionStatus: 'ONLINE' | 'AWAY' | 'OFFLINE' = 'OFFLINE';
+        if (!isExplicitLogout && lastLogin) {
+          if (diffActiveMin <= 30) {
+            sessionStatus = 'ONLINE';
+          } else if (diffLoginHours <= 12) {
+            sessionStatus = 'AWAY';
+          }
+        }
+
+        let sessionDurationText = 'No session recorded';
+        if (sessionStatus === 'ONLINE' && lastLogin) {
+          const mins = Math.max(1, Math.floor((now.getTime() - lastLogin.getTime()) / 60000));
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          sessionDurationText = h > 0 ? `${h}h ${m}m (Active Now)` : `${m}m (Active Now)`;
+        } else if (isExplicitLogout && lastLogin && lastLogout) {
+          const mins = Math.max(1, Math.floor((lastLogout.getTime() - lastLogin.getTime()) / 60000));
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          sessionDurationText = `${h > 0 ? `${h}h ${m}m` : `${m}m`} (Was active until logout)`;
+        } else if (sessionStatus === 'AWAY' && lastLogin) {
+          const mins = Math.max(1, Math.floor((now.getTime() - lastLogin.getTime()) / 60000));
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          sessionDurationText = `${h > 0 ? `${h}h ${m}m` : `${m}m`} (In field · Away)`;
+        } else if (dossier?.todayActivity?.checkInTime && dossier?.todayActivity?.checkOutTime) {
+          const cin = new Date(dossier.todayActivity.checkInTime);
+          const cout = new Date(dossier.todayActivity.checkOutTime);
+          const mins = Math.max(1, Math.floor((cout.getTime() - cin.getTime()) / 60000));
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          sessionDurationText = `${h > 0 ? `${h}h ${m}m` : `${m}m`} (Field shift completed)`;
+        }
+
+        return (
+          <div className="space-y-6">
+            {/* Live Login & Field Session Telemetry Card */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900">
+                      Live Login Status & Field Session Duration
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Real-time telemetry of representative login sessions, active field duty, and logout duration
+                    </p>
+                  </div>
+                </div>
+
+                {sessionStatus === 'ONLINE' ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Logged In Now (Online)
+                  </span>
+                ) : sessionStatus === 'AWAY' ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    In Field / Away
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    Logged Out (Offline)
+                  </span>
+                )}
               </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="font-semibold text-slate-500">Headquarter Base</span>
-                <span className="font-bold text-slate-900">{emp.hq?.name || 'Nagpur Central'}</span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+                <div className="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Session Duration
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 block">
+                    {sessionDurationText}
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    {sessionStatus === 'ONLINE' ? 'Current active session' : 'Total duration tracked'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Login Time
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 block">
+                    {formatDateTime(emp.lastLoginAt)}
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    Last authenticated session
+                  </span>
+                </div>
+
+                <div className="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Logout Time
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 block">
+                    {isExplicitLogout ? formatDateTime(emp.lastLogoutAt) : (sessionStatus === 'ONLINE' ? 'Currently Logged In' : '—')}
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    {isExplicitLogout ? 'Session closed normally' : (sessionStatus === 'ONLINE' ? 'Active session in progress' : 'No explicit logout')}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Last Active Ping
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 block">
+                    {formatTimeAgo(emp.lastActiveAt)}
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    {emp.lastActiveAt ? formatTimeOnly(emp.lastActiveAt) : 'No ping recorded'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="font-semibold text-slate-500">Reporting Manager</span>
-                <span className="font-bold text-slate-900">{emp.manager ? `${emp.manager.firstName} ${emp.manager.lastName}` : 'Area Sales Manager (ASM)'}</span>
+
+              {/* Field Attendance Check-In / Out Bar */}
+              {dossier?.todayActivity && (
+                <div className="mt-2 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 bg-slate-50/50 p-3.5 rounded-2xl">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-blue-600" />
+                    <span>Today Field Attendance:</span>
+                    <strong className="text-slate-800">
+                      {dossier.todayActivity.isCheckedIn ? 'Checked-In (On Duty)' : 'Not Checked-In'}
+                    </strong>
+                  </div>
+                  <div className="flex items-center gap-4 text-slate-500">
+                    <span>Check-In: <strong className="text-slate-800">{formatTimeOnly(dossier.todayActivity.checkInTime)}</strong></span>
+                    <span>Check-Out: <strong className="text-slate-800">{formatTimeOnly(dossier.todayActivity.checkOutTime)}</strong></span>
+                    <span>Doctor Calls: <strong className="text-emerald-700">{dossier.todayActivity.calls?.doctorCalls ?? 0}</strong></span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Existing Two-column cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-emerald-600" /> Organizational Hierarchy
+                </h2>
+
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="font-semibold text-slate-500">Designation / Role</span>
+                    <span className="font-bold text-slate-900">{formatRole(emp.role)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="font-semibold text-slate-500">Headquarter Base</span>
+                    <span className="font-bold text-slate-900">{emp.hq?.name || 'Nagpur Central'}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="font-semibold text-slate-500">Reporting Manager</span>
+                    <span className="font-bold text-slate-900">{emp.manager ? `${emp.manager.firstName} ${emp.manager.lastName}` : 'Area Sales Manager (ASM)'}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="font-semibold text-slate-500">Joining Date</span>
+                    <span className="font-bold text-slate-900">{formatDate(emp.dateOfJoining || emp.createdAt)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between py-1.5">
-                <span className="font-semibold text-slate-500">Joining Date</span>
-                <span className="font-bold text-slate-900">{formatDate(emp.dateOfJoining || emp.createdAt)}</span>
+
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-blue-600" /> Territory & Compliance Security
+                </h2>
+
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="font-semibold text-slate-500">Assigned Areas</span>
+                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                      {emp.hq?.name || 'Territory Core Beats'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="font-semibold text-slate-500">Mobile Geo-Fencing</span>
+                    <span className="font-bold text-slate-900">GPS Enforced (300m Clinic Radius)</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="font-semibold text-slate-500">Biometric / Device Lock</span>
+                    <span className="font-bold text-slate-900">Active Handshake</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="font-semibold text-slate-500">System Role</span>
+                    <span className="font-mono font-bold text-slate-700">{emp.role}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Shield className="w-4 h-4 text-blue-600" /> Territory & Compliance Security
-            </h2>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="font-semibold text-slate-500">Assigned Areas</span>
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                  {emp.hq?.name || 'Territory Core Beats'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="font-semibold text-slate-500">Mobile Geo-Fencing</span>
-                <span className="font-bold text-slate-900">GPS Enforced (300m Clinic Radius)</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="font-semibold text-slate-500">Biometric / Device Lock</span>
-                <span className="font-bold text-slate-900">Active Handshake</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5">
-                <span className="font-semibold text-slate-500">System Role</span>
-                <span className="font-mono font-bold text-slate-700">{emp.role}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── TAB 2: ASSIGNED DOCTORS ── */}
       {activeTab === 'doctors' && (

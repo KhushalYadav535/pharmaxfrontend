@@ -9,7 +9,7 @@ import {
   Stethoscope, Building2, Store, Truck, Zap,
   AlertCircle, ArrowUpRight, CheckCircle2, SlidersHorizontal,
   Users, Layers, RefreshCw, ShieldCheck, TrendingUp, Sparkles,
-  BarChart3, Eye, ArrowRight, Check
+  BarChart3, Eye, ArrowRight, Check, MessageCircle, Copy, Share2, X
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,11 +30,40 @@ function getFormattedDate() {
   }).format(new Date());
 }
 
+function formatTimeOnly(d?: string | null) {
+  if (!d) return '—';
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    }).format(new Date(d));
+  } catch {
+    return '—';
+  }
+}
+
+function formatTimeAgo(d?: string | null) {
+  if (!d) return '—';
+  try {
+    const diffMs = Date.now() - new Date(d).getTime();
+    const diffMins = Math.max(0, Math.round(diffMs / 60000));
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const hours = Math.floor(diffMins / 60);
+    if (hours < 24) return `${hours}h ${diffMins % 60}m ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  } catch {
+    return '—';
+  }
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showEODModal, setShowEODModal] = useState(false);
+  const [eodNotes, setEodNotes] = useState('');
+  const [copiedEOD, setCopiedEOD] = useState(false);
 
   const isAdminOrManager = ['SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN', 'NSM', 'ZM', 'RSM', 'ASM'].includes(user?.role || '');
 
@@ -43,6 +72,14 @@ export default function DashboardPage() {
     queryKey: ['approvals-summary'],
     queryFn: () => api.get('/approvals/summary').then((r) => r.data.data),
     refetchInterval: 20000,
+  });
+
+  // Live Field Rep (MR) Login & Session Telemetry
+  const { data: telemetryData, refetch: refetchTelemetry } = useQuery({
+    queryKey: ['live-mr-telemetry'],
+    queryFn: () => api.get('/employees/live-telemetry').then((r) => r.data.data),
+    refetchInterval: 15000,
+    enabled: isAdminOrManager,
   });
 
   // Doctor stats & Headquarters
@@ -66,6 +103,7 @@ export default function DashboardPage() {
     setIsRefreshing(true);
     await Promise.all([
       refetchApprovals(),
+      refetchTelemetry(),
       refetchHq(),
       refetchDoctors(),
       refetchVisits(),
@@ -137,6 +175,16 @@ export default function DashboardPage() {
                 <span>Analytics & Charts</span>
               </button>
             </div>
+
+            {/* Daily Manager EOD WhatsApp Digest */}
+            <button
+              onClick={() => setShowEODModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-2xs"
+              title="Generate 1-click WhatsApp EOD Digest for managers"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">EOD WhatsApp</span>
+            </button>
 
             {/* Quick Refresh Button */}
             <button
@@ -705,6 +753,182 @@ export default function DashboardPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
+            LIVE FIELD FORCE (MR) LOGIN & SESSION DURATION MONITOR
+        ══════════════════════════════════════════════════════════════════ */}
+        {isAdminOrManager && (
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-2xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                    <Activity className="w-4 h-4 text-emerald-600 animate-pulse" />
+                  </div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Live Field Rep (MR) Login & Presence Monitor
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                    Real-Time Session Telemetry
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Live tracking of which MR is logged in, their active duration, login timestamps, and session history.
+                </p>
+              </div>
+
+              {/* Status Counters */}
+              <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  {telemetryData?.summary?.onlineCount || 0} Online Now
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  {telemetryData?.summary?.awayCount || 0} In Clinic / Away
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  {telemetryData?.summary?.offlineCount || 0} Offline
+                </span>
+                <Link
+                  href="/dashboard/masters/employees"
+                  className="text-xs font-bold text-emerald-700 hover:underline pl-2 flex items-center gap-0.5"
+                >
+                  <span>All Staff &rarr;</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Roster Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+              {(telemetryData?.telemetry || []).map((mr: any) => {
+                const isOnline = mr.status === 'ONLINE';
+                const isAway = mr.status === 'AWAY';
+                return (
+                  <div
+                    key={mr.id}
+                    className={`p-5 rounded-2xl border transition-all space-y-3.5 shadow-2xs ${
+                      isOnline
+                        ? 'bg-emerald-50/20 border-emerald-300 ring-1 ring-emerald-200/60'
+                        : isAway
+                        ? 'bg-amber-50/15 border-amber-200/80'
+                        : 'bg-slate-50/50 border-slate-200/80 hover:bg-white'
+                    }`}
+                  >
+                    {/* Header: MR Identity & Status Beacon */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs relative ${
+                          isOnline
+                            ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-sm shadow-emerald-500/20'
+                            : isAway
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {mr.firstName?.[0] || 'M'}{mr.lastName?.[0] || 'R'}
+                          {isOnline && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white animate-pulse" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-sm text-slate-900">{mr.name}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                            <span className="font-mono font-bold text-slate-600">{mr.employeeId || 'MR'}</span>
+                            <span>·</span>
+                            <span>{mr.hq?.name || 'Headquarter'}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status Tag */}
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                        isOnline
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : isAway
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
+                        {isOnline ? 'Online Now' : isAway ? 'In Field' : 'Offline'}
+                      </span>
+                    </div>
+
+                    {/* Middle Card: Kitne der se login hai / Kitni der tak login tha */}
+                    <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                      isOnline
+                        ? 'bg-white border-emerald-200/80'
+                        : isAway
+                        ? 'bg-white border-amber-200/80'
+                        : 'bg-white/80 border-slate-200/70'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase">
+                          {isOnline ? 'Active Login Duration' : 'Login / Session Status'}
+                        </span>
+                        <span className={`font-extrabold ${
+                          isOnline ? 'text-emerald-700' : isAway ? 'text-amber-700' : 'text-slate-700'
+                        }`}>
+                          {isOnline
+                            ? `Online for ${mr.formattedDuration}`
+                            : isAway
+                            ? `Active for ${mr.formattedDuration}`
+                            : mr.formattedDuration !== '0m'
+                            ? `Was on for ${mr.formattedDuration}`
+                            : 'No Session Today'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                        <span>
+                          {mr.loginTime
+                            ? `Logged in: ${formatTimeOnly(mr.loginTime)}`
+                            : mr.lastLoginAt
+                            ? `Last login: ${formatTimeOnly(mr.lastLoginAt)}`
+                            : 'Never logged in'}
+                        </span>
+                        <span>
+                          {isOnline
+                            ? `Ping: ${formatTimeAgo(mr.lastActiveAt)}`
+                            : mr.logoutTime
+                            ? `Logged out: ${formatTimeOnly(mr.logoutTime)}`
+                            : mr.lastActiveAt
+                            ? `Active: ${formatTimeAgo(mr.lastActiveAt)}`
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Doctor calls & Actions */}
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <span className="text-slate-600 font-semibold flex items-center gap-1 text-[11px]">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{mr.todayMetrics?.completedVisits || 0} / {mr.todayMetrics?.totalVisits || 0} calls filed</span>
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/dashboard/masters/employees/${mr.id}`}
+                          className="text-[11px] font-bold text-slate-600 hover:text-emerald-700 hover:underline"
+                        >
+                          Dossier
+                        </Link>
+                        <span>·</span>
+                        <Link
+                          href={`/dashboard/visits/route-audit?userId=${mr.id}`}
+                          className="text-[11px] font-bold text-emerald-700 hover:underline"
+                        >
+                          GPS Route &rarr;
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
             HEADQUARTER TERRITORIAL CENSUS (DOCTORS, HOSPITALS, CHEMISTS)
         ══════════════════════════════════════════════════════════════════ */}
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-2xs space-y-5">
@@ -799,6 +1023,121 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Daily Manager EOD WhatsApp Digest Modal ──────────────────────── */}
+      {showEODModal && (() => {
+        const todayStr = new Intl.DateTimeFormat('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        }).format(new Date());
+
+        const totalMRs = telemetryData?.totalReps ?? 0;
+        const onlineMRs = telemetryData?.onlineReps ?? 0;
+        const visitsCompleted = visitStats?.totalCompleted ?? 0;
+        const visitsPlanned = visitStats?.totalPlanned ?? 0;
+        const ordersCount = orderStats?.todayCount ?? orderStats?.totalOrders ?? 0;
+        const ordersVal = orderStats?.todayValue ?? orderStats?.totalValue ?? 0;
+
+        const digestMessage = `*BIOCROS PHARMA - DAILY EOD FIELD FORCE DIGEST*
+📅 *Date:* ${todayStr}
+🏢 *Active Divisions:* ${headquarters?.length || 1} Headquarters
+
+*📊 FIELD TELEMETRY & ATTENDANCE:*
+• Active MRs in Field: ${onlineMRs} / ${totalMRs} (${totalMRs > 0 ? Math.round((onlineMRs / totalMRs) * 100) : 0}%)
+• Doctor Calls Completed: ${visitsCompleted} / ${visitsPlanned}
+• Daily Call Compliance: ${coverageRatio}%
+
+*📦 COMMERCIAL & SECONDARY SALES:*
+• Orders Logged: ${ordersCount}
+• Orders Value: ₹${Number(ordersVal).toLocaleString('en-IN')}
+
+*⚠️ GOVERNANCE & PENDING ACTIONS:*
+• Approvals Pending: ${pendingTotal}
+
+${eodNotes ? `*📝 MANAGER REMARKS:*\n${eodNotes}\n\n` : ''}_Generated via Pharmax Executive Operations Desk_`;
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg border border-slate-100 overflow-hidden">
+              <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/60">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                    <MessageCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900 text-sm">Manager EOD WhatsApp Digest</h2>
+                    <p className="text-xs text-slate-400">1-click daily field force performance summary</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowEODModal(false)}
+                  className="p-1.5 hover:bg-slate-200/60 rounded-xl transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Add Optional Manager Note / Instruction
+                  </label>
+                  <input
+                    type="text"
+                    value={eodNotes}
+                    onChange={(e) => setEodNotes(e.target.value)}
+                    placeholder="e.g. Great doctor coverage in Patna HQ today! Target pending orders tomorrow morning."
+                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Formatted WhatsApp Preview
+                  </label>
+                  <pre className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-[11px] font-mono text-slate-800 whitespace-pre-wrap max-h-56 overflow-y-auto leading-relaxed select-all">
+                    {digestMessage}
+                  </pre>
+                </div>
+
+                <div className="flex gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(digestMessage);
+                      setCopiedEOD(true);
+                      setTimeout(() => setCopiedEOD(false), 2000);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    {copiedEOD ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span className="text-emerald-700">Copied to Clipboard!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-slate-500" />
+                        <span>Copy Message</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open(`https://wa.me/?text=${encodeURIComponent(digestMessage)}`, '_blank');
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>Open in WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

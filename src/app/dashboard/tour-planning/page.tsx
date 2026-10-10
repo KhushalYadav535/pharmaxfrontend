@@ -95,6 +95,15 @@ export default function TourPlanningPage() {
               <Calendar className="w-3.5 h-3.5" />
               Monthly Calendar
             </Link>
+            {isAdminOrManager && (
+              <Link
+                href="/dashboard/visits/plan-new"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Batch Plan MR Visits
+              </Link>
+            )}
             <button
               onClick={() => setShowForm(true)}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-sm"

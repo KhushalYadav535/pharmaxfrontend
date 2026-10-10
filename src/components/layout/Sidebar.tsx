@@ -149,6 +149,14 @@ const NAV_SECTIONS: NavSection[] = [
         badgeColor: 'bg-emerald-100 text-emerald-800',
       },
       { label: 'Field Attendance', href: '/dashboard/attendance', icon: Clock },
+      {
+        label: 'MR App Usage & Login Reports',
+        href: '/dashboard/reports/mr-activity',
+        icon: Activity,
+        roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'MIS',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
       { label: 'Leave Desk', href: '/dashboard/leave', icon: CalendarOff },
       {
         label: 'Expense Reimbursements',
@@ -225,6 +233,14 @@ const NAV_SECTIONS: NavSection[] = [
       },
       { label: 'Executive Reports', href: '/dashboard/reports', icon: FileSpreadsheet },
       {
+        label: 'MR Activity & Login MIS',
+        href: '/dashboard/reports/mr-activity',
+        icon: Clock,
+        roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'New',
+        badgeColor: 'bg-indigo-100 text-indigo-700',
+      },
+      {
         label: 'AI Sales Copilot',
         href: '/dashboard/ai',
         icon: Sparkles,
@@ -245,6 +261,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Product Master', href: '/dashboard/masters/products', icon: Boxes },
       { label: 'Location & Beat Master', href: '/dashboard/masters/locations', icon: MapPin, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN'] },
       { label: 'Employee Master', href: '/dashboard/masters/employees', icon: UserCog, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN'] },
+      { label: 'Security & Audit Trail', href: '/dashboard/audit-logs', icon: ShieldCheck, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN'], badge: 'Audit', badgeColor: 'bg-blue-100 text-blue-700' },
     ],
   },
 ];

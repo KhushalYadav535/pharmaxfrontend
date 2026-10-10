@@ -16,6 +16,9 @@ import {
   Loader2,
   X,
   Download,
+  Upload,
+  ArrowLeftRight,
+  FileSpreadsheet,
   CheckCircle,
   XCircle,
   MapPin,
@@ -55,7 +58,88 @@ function DoctorsPageContent() {
   const [page, setPage] = useState(1);
   const [curatingDoctor, setCuratingDoctor] = useState<any | null>(null);
   const [doctorToDelete, setDoctorToDelete] = useState<any | null>(null);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [targetTransferHqId, setTargetTransferHqId] = useState('');
+  const [zeroCallOnly, setZeroCallOnly] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+
   const qc = useQueryClient();
+
+  // Fetch compliance data for zero-call doctors
+  const { data: complianceData } = useQuery({
+    queryKey: ['doctor-compliance-doctors-page'],
+    queryFn: () => api.get('/analytics/doctor-frequency-compliance').then((r) => r.data.data),
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: (body: { doctorIds: string[]; hqId: string }) => api.post('/doctors/bulk-transfer', body),
+    onSuccess: (res: any) => {
+      alert(res.data?.message || 'Doctors successfully transferred');
+      setSelectedDocIds([]);
+      setShowTransferModal(false);
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['headquarters-list'] });
+    },
+    onError: (err: any) => alert(err.response?.data?.message || 'Transfer failed'),
+  });
+
+  const bulkImportMutation = useMutation({
+    mutationFn: (doctors: any[]) => api.post('/doctors/bulk', { doctors }),
+    onSuccess: (res: any) => {
+      alert(res.data?.message || 'Doctors successfully imported');
+      setShowImportModal(false);
+      setImportPreview([]);
+      setImportFile(null);
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['headquarters-list'] });
+    },
+    onError: (err: any) => alert(err.response?.data?.message || 'Bulk import failed'),
+  });
+
+  const downloadSampleDoctorCSV = () => {
+    const csvSample = `doctorCode,firstName,lastName,specialty,qualification,classification,category,city,state,phone,email
+DOC-101,Rajesh,Sharma,CARDIOLOGY,MD MBBS,A,CORE,Nagpur,Maharashtra,9876543210,dr.rajesh@example.com
+DOC-102,Pooja,Deshmukh,PEDIATRICS,DCH MBBS,A_PLUS,CORE,Nagpur,Maharashtra,9876543211,dr.pooja@example.com
+DOC-103,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876543212,dr.amit@example.com`;
+
+    const blob = new Blob([csvSample], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Pharmax_Doctor_Import_Template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+        alert('CSV must contain a header row and at least 1 doctor record.');
+        return;
+      }
+      const headers = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
+      const parsed = lines.slice(1).map((line) => {
+        const values = line.split(',').map((v) => v.trim().replace(/^["']|["']$/g, ''));
+        const obj: any = {};
+        headers.forEach((h, idx) => {
+          obj[h] = values[idx] || '';
+        });
+        return obj;
+      });
+      setImportPreview(parsed);
+    };
+    reader.readAsText(file);
+  };
 
   useEffect(() => {
     const qHq = searchParams?.get('hqId');
@@ -187,6 +271,13 @@ function DoctorsPageContent() {
             <Download className="w-4 h-4 text-slate-500" /> Export CSV
           </button>
 
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-xl transition-colors border border-slate-200 shadow-sm"
+          >
+            <Upload className="w-4 h-4 text-emerald-600" /> Import Excel / CSV
+          </button>
+
           <Link
             href="/dashboard/doctors/new"
             id="add-doctor-btn"
@@ -197,14 +288,14 @@ function DoctorsPageContent() {
         </div>
       </div>
 
-      {/* Stats / Classification Pills */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Stats / Classification & Zero-Call Compliance Pills */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {CLASSIFICATIONS.map((cls) => {
-          const isSelected = classification === cls;
+          const isSelected = classification === cls && !zeroCallOnly;
           return (
             <button
               key={cls}
-              onClick={() => { setClassification(isSelected ? '' : cls); setPage(1); }}
+              onClick={() => { setClassification(isSelected ? '' : cls); setZeroCallOnly(false); setPage(1); }}
               className={`p-3.5 rounded-2xl border text-left transition-all relative overflow-hidden ${
                 isSelected
                   ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20 shadow-sm'
@@ -223,6 +314,26 @@ function DoctorsPageContent() {
             </button>
           );
         })}
+
+        {/* 5th Pill: Zero-Call Doctors (0 Calls This Month) */}
+        <button
+          onClick={() => { setZeroCallOnly(!zeroCallOnly); setClassification(''); setPage(1); }}
+          className={`p-3.5 rounded-2xl border text-left transition-all relative overflow-hidden ${
+            zeroCallOnly
+              ? 'border-rose-500 bg-rose-50/70 ring-2 ring-rose-500/20 shadow-sm'
+              : 'border-slate-200/80 bg-white hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-100 text-rose-800">
+              Zero-Call ({complianceData?.zeroCallCount ?? 0})
+            </span>
+            <span className="text-xs text-rose-500 font-bold">Alert</span>
+          </div>
+          <p className="text-xs text-rose-600 mt-2 font-medium">
+            Missed Calls This Month
+          </p>
+        </button>
       </div>
 
       {/* ── Headquarter-Wise Quick Filter Pill Bar ── */}
@@ -367,6 +478,23 @@ function DoctorsPageContent() {
           <table className="w-full text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+                <th className="px-4 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedDocIds.length > 0 &&
+                      selectedDocIds.length === (data?.doctors?.length || 0)
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedDocIds((data?.doctors || []).map((d: any) => d.id));
+                      } else {
+                        setSelectedDocIds([]);
+                      }
+                    }}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                </th>
                 <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Doctor Code</th>
                 <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Doctor & Qual</th>
                 <th className="text-left px-4 py-3 font-semibold uppercase tracking-wider text-[11px]">Category</th>
@@ -380,26 +508,43 @@ function DoctorsPageContent() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-4">
-                        <div className="h-4 bg-slate-100 rounded animate-pulse" style={{ width: j === 1 ? '160px' : '70px' }} />
+                        <div className="h-4 bg-slate-100 rounded animate-pulse" style={{ width: j === 2 ? '160px' : '70px' }} />
                       </td>
                     ))}
                   </tr>
                 ))
-              ) : data?.doctors?.length === 0 ? (
+              ) : (zeroCallOnly ? (data?.doctors || []).filter((d: any) => complianceData?.zeroCallDoctors?.some((z: any) => z.id === d.id)) : (data?.doctors || [])).length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-slate-400">
+                  <td colSpan={8} className="text-center py-16 text-slate-400">
                     <Users className="w-10 h-10 mx-auto mb-3 opacity-30 text-slate-400" />
                     <p className="font-semibold text-slate-600">No doctors match current filters</p>
                     <p className="text-xs text-slate-400 mt-1">Try clearing filters or search terms</p>
                   </td>
                 </tr>
               ) : (
-                data?.doctors?.map((doc: any) => {
+                (zeroCallOnly ? (data?.doctors || []).filter((d: any) => complianceData?.zeroCallDoctors?.some((z: any) => z.id === d.id)) : (data?.doctors || [])).map((doc: any) => {
                   const isPending = doc.approvalStatus === 'PENDING';
+                  const isChecked = selectedDocIds.includes(doc.id);
                   return (
-                    <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors group">
+                    <tr key={doc.id} className={`hover:bg-slate-50/70 transition-colors group ${isChecked ? 'bg-emerald-50/30' : ''}`}>
+                      {/* Checkbox */}
+                      <td className="px-4 py-3.5 w-8">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDocIds((prev) => [...prev, doc.id]);
+                            } else {
+                              setSelectedDocIds((prev) => prev.filter((id) => id !== doc.id));
+                            }
+                          }}
+                          className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                        />
+                      </td>
+
                       {/* Doctor Code */}
                       <td className="px-4 py-3.5">
                         <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
@@ -609,6 +754,153 @@ function DoctorsPageContent() {
               >
                 {deleteDoctorMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Yes, Delete Doctor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ──────────────── FLOATING BULK ACTIONS BAR ──────────────── */}
+      {selectedDocIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="text-xs font-bold">
+            <span className="text-emerald-400 font-black">{selectedDocIds.length}</span> Doctors Selected
+          </div>
+          <button
+            onClick={() => setShowTransferModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-2xs"
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5" /> Transfer to Territory / HQ
+          </button>
+          <button
+            onClick={() => setSelectedDocIds([])}
+            className="text-xs font-bold text-slate-400 hover:text-white"
+          >
+            Cancel Selection
+          </button>
+        </div>
+      )}
+
+      {/* ──────────────── MODAL: BULK TRANSFER DOCTORS ──────────────── */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <ArrowLeftRight className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900">Reassign / Transfer Doctors</h3>
+              </div>
+              <button onClick={() => setShowTransferModal(false)} className="text-slate-400 hover:text-slate-700 text-xs font-bold">
+                Cancel
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Transferring <strong>{selectedDocIds.length}</strong> selected doctors to a new territory or headquarter base.
+            </p>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Target Headquarter</label>
+              <select
+                value={targetTransferHqId}
+                onChange={(e) => setTargetTransferHqId(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white text-slate-800"
+              >
+                <option value="">Select Target Headquarter</option>
+                {headquarters.map((hq: any) => (
+                  <option key={hq.id} value={hq.id}>
+                    {hq.name} {hq.code ? `(${hq.code})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!targetTransferHqId || transferMutation.isPending}
+                onClick={() => transferMutation.mutate({ doctorIds: selectedDocIds, hqId: targetTransferHqId })}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-2xs inline-flex items-center gap-1.5"
+              >
+                {transferMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Confirm Transfer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────────── MODAL: BULK IMPORT DOCTORS ──────────────── */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Upload className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900">Bulk Import Doctors (Excel / CSV)</h3>
+              </div>
+              <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-700 text-xs font-bold">
+                Cancel
+              </button>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-slate-800 block">Download Excel / CSV Template</span>
+                <span className="text-[11px] text-slate-500 block">Contains required columns: doctorCode, firstName, lastName, specialty, city, phone</span>
+              </div>
+              <button
+                onClick={downloadSampleDoctorCSV}
+                className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-2xs flex-shrink-0"
+              >
+                Download Sample
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Select .CSV File</label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleCSVUpload}
+                className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+              />
+            </div>
+
+            {importPreview.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-800">Preview ({importPreview.length} Doctors detected):</span>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50/50 text-[11px]">
+                  {importPreview.slice(0, 5).map((row, idx) => (
+                    <div key={idx} className="py-1 border-b border-slate-100 last:border-0 text-slate-700 font-mono">
+                      <strong>{row.doctorCode || `DOC-${idx + 1}`}</strong>: Dr. {row.firstName} {row.lastName} ({row.specialty || 'General'}) · {row.city || 'Nagpur'}
+                    </div>
+                  ))}
+                  {importPreview.length > 5 && (
+                    <div className="text-slate-400 italic pt-1">... and {importPreview.length - 5} more records</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={importPreview.length === 0 || bulkImportMutation.isPending}
+                onClick={() => bulkImportMutation.mutate(importPreview)}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-2xs inline-flex items-center gap-1.5"
+              >
+                {bulkImportMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Confirm Import ({importPreview.length} Doctors)
               </button>
             </div>
           </div>
