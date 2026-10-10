@@ -152,7 +152,7 @@ export default function MRActivityReportPage() {
                     </span>
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500">
-                    हर MR की अलग-अलग लॉगिन अवधि, घंटे, लॉगिन/लॉगआउट संख्या और ऐप उपयोगिता की विस्तृत रिपोर्ट
+                    Individual report of each Medical Representative's login duration, active hours, login/logout count, and app engagement
                   </p>
                 </div>
               </div>
@@ -552,7 +552,7 @@ export default function MRActivityReportPage() {
                             onClick={() => setSelectedMRId(mr.id)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all cursor-pointer"
                           >
-                            <span>डिटेल रिपोर्ट</span>
+                            <span>View Report</span>
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
                         </td>
@@ -720,7 +720,7 @@ export default function MRActivityReportPage() {
                       }`}
                     >
                       <CalendarDays className="w-4 h-4" />
-                      <span>Day-by-Day Usage Breakdown (दैनिक विवरण)</span>
+                      <span>Day-by-Day Usage Breakdown</span>
                     </button>
 
                     <button
@@ -732,7 +732,7 @@ export default function MRActivityReportPage() {
                       }`}
                     >
                       <Clock className="w-4 h-4" />
-                      <span>Individual Session History Logs (हर लॉगिन-लॉगआउट लॉग)</span>
+                      <span>Individual Session History Logs</span>
                       <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700">
                         {individualData?.sessionLogs?.length || 0}
                       </span>
