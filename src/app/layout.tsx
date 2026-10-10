@@ -1,13 +1,7 @@
 import type { Metadata } from 'next';
-import { Inter, Anton, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import QueryProvider from '@/lib/query-provider';
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const anton = Anton({ weight: '400', subsets: ['latin'], variable: '--font-display' });
-const grot = Space_Grotesk({ subsets: ['latin'], variable: '--font-grot', weight: ['400', '500', '600', '700'] });
-const jbmono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jbmono', weight: ['400', '500', '700'] });
 
 export const metadata: Metadata = {
   title: 'Field Pulse® — Pharma Sales, Supercharged',
@@ -23,7 +17,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${anton.variable} ${grot.variable} ${jbmono.variable}`}>
+    <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="font-sans antialiased">
         <QueryProvider>
           <AuthProvider>{children}</AuthProvider>
@@ -32,3 +34,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

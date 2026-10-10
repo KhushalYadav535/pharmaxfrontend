@@ -2,7 +2,10 @@
 @config "../../tailwind.config.ts";
 
 :root {
-  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Anton', 'Arial Black', sans-serif;
+  --font-grot: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-jbmono: 'JetBrains Mono', ui-monospace, monospace;
   --color-primary: #0B6E4F;
   --color-primary-light: #E8F5F1;
 
