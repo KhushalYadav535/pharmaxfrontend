@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { resolveFileUrl } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import { Megaphone, Plus, X, Loader2, FileText, Video, Image, Presentation, Eye, ToggleLeft, ToggleRight, Search, Filter, Zap, Calendar } from 'lucide-react';
+import { Megaphone, Plus, X, Loader2, FileText, Video, Image, Presentation, Eye, ToggleLeft, ToggleRight, Search, Filter, Zap, Calendar, UploadCloud, Link2, FileCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 const isManager = (role: string) => ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'MARKETING', 'PRODUCT_MANAGER'].includes(role);
@@ -35,6 +35,9 @@ export default function ContentPage() {
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [contentForm, setContentForm] = useState({ ...EMPTY_CONTENT });
   const [campaignForm, setCampaignForm] = useState({ ...EMPTY_CAMPAIGN });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<'upload' | 'url'>('upload');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const qc = useQueryClient();
 
   const { data: contents, isLoading } = useQuery({
@@ -49,8 +52,30 @@ export default function ContentPage() {
   });
 
   const createContent = useMutation({
-    mutationFn: (body: any) => api.post('/content', body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contents'] }); setShowContentForm(false); setContentForm({ ...EMPTY_CONTENT }); },
+    mutationFn: async (body: any) => {
+      if (uploadMode === 'upload' && uploadFile) {
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+        formData.append('title', body.title.trim());
+        formData.append('contentType', body.contentType);
+        formData.append('version', body.version || '1.0');
+        if (body.description) formData.append('description', body.description.trim());
+        if (body.productName) formData.append('productName', body.productName.trim());
+        if (body.campaignId) formData.append('campaignId', body.campaignId);
+        return api.post('/content/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        return api.post('/content', body);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contents'] });
+      setShowContentForm(false);
+      setUploadFile(null);
+      setUploadMode('upload');
+      setContentForm({ ...EMPTY_CONTENT });
+    },
   });
 
   const createCampaign = useMutation({
@@ -161,7 +186,7 @@ export default function ContentPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           {c.fileUrl && (
-                            <a href={c.fileUrl} target="_blank" rel="noopener noreferrer" onClick={() => logView.mutate(c.id)} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                            <a href={resolveFileUrl(c.fileUrl)} target="_blank" rel="noopener noreferrer" onClick={() => logView.mutate(c.id)} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors">
                               <Eye className="w-3 h-3" /> View
                             </a>
                           )}
@@ -228,7 +253,7 @@ export default function ContentPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <h2 className="font-bold text-gray-900 text-lg">Add New Content</h2>
-              <button onClick={() => setShowContentForm(false)} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-500" /></button>
+              <button onClick={() => { setShowContentForm(false); setUploadFile(null); setUploadMode('upload'); }} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-500" /></button>
             </div>
             <form onSubmit={(e) => { e.preventDefault(); createContent.mutate(contentForm); }} className="p-6 space-y-4">
               <div>
@@ -248,8 +273,109 @@ export default function ContentPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">File URL *</label>
-                <input required value={contentForm.fileUrl} onChange={(e) => setContentForm(f => ({ ...f, fileUrl: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="https://..." />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-700">
+                    Content Asset <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setUploadMode('upload')}
+                      className={`flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition ${
+                        uploadMode === 'upload'
+                          ? 'bg-white text-emerald-700 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <UploadCloud className="w-3 h-3" />
+                      Upload File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUploadMode('url')}
+                      className={`flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition ${
+                        uploadMode === 'url'
+                          ? 'bg-white text-emerald-700 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <Link2 className="w-3 h-3" />
+                      Direct URL
+                    </button>
+                  </div>
+                </div>
+
+                {uploadMode === 'upload' ? (
+                  <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept=".pdf,.mp4,.webm,.png,.jpg,.jpeg,.webp,.ppt,.pptx"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setUploadFile(file);
+                          if (!contentForm.title.trim()) {
+                            const lastDot = file.name.lastIndexOf('.');
+                            const clean = (lastDot !== -1 ? file.name.substring(0, lastDot) : file.name).replace(/[_-]+/g, ' ').trim();
+                            setContentForm((f) => ({ ...f, title: clean }));
+                          }
+                        }
+                      }}
+                    />
+
+                    {!uploadFile ? (
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-gray-300 hover:border-emerald-400 rounded-xl p-4 text-center cursor-pointer bg-gray-50/50 hover:bg-gray-50 transition"
+                      >
+                        <UploadCloud className="w-6 h-6 text-emerald-600 mx-auto mb-1" />
+                        <p className="text-xs font-semibold text-gray-700">Click to upload file</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">PDF, MP4, Presentation, Images</p>
+                      </div>
+                    ) : (
+                      <div className="border border-gray-200 rounded-xl p-3 bg-white flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                            <FileCheck className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 truncate">{uploadFile.name}</p>
+                            <p className="text-[10px] text-gray-400">{(uploadFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-2 py-1 text-[11px] text-emerald-600 hover:bg-emerald-50 rounded font-medium"
+                          >
+                            Change
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUploadFile(null);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <input
+                    required={uploadMode === 'url'}
+                    value={contentForm.fileUrl}
+                    onChange={(e) => setContentForm((f) => ({ ...f, fileUrl: e.target.value }))}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    placeholder="https://..."
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Product Name</label>
@@ -267,7 +393,7 @@ export default function ContentPage() {
                 <textarea value={contentForm.description} onChange={(e) => setContentForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" placeholder="Brief description..." />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowContentForm(false)} className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
+                <button type="button" onClick={() => { setShowContentForm(false); setUploadFile(null); setUploadMode('upload'); }} className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
                 <button type="submit" disabled={createContent.isPending} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl disabled:opacity-60">
                   {createContent.isPending ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : 'Add Content'}
                 </button>

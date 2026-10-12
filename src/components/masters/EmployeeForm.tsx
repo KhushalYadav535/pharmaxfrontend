@@ -107,6 +107,24 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
   });
   const hqList: any[] = hqData ?? [];
 
+  // ── HRMS Org Masters dropdowns ─────────────────────────────────────────────
+  const { data: deptList = [] } = useQuery({
+    queryKey: ['hrms-depts-list'],
+    queryFn: () => api.get('/hrms/org/departments').then(r => r.data.data || []),
+  });
+  const { data: divList = [] } = useQuery({
+    queryKey: ['hrms-divs-list'],
+    queryFn: () => api.get('/hrms/org/divisions').then(r => r.data.data || []),
+  });
+  const { data: desigList = [] } = useQuery({
+    queryKey: ['hrms-desigs-list'],
+    queryFn: () => api.get('/hrms/org/designations').then(r => r.data.data || []),
+  });
+  const { data: gradeList = [] } = useQuery({
+    queryKey: ['hrms-grades-list'],
+    queryFn: () => api.get('/hrms/org/grades').then(r => r.data.data || []),
+  });
+
   // ── Basic Info ────────────────────────────────────────────────────────────
   const [prefix, setPrefix]         = useState(editData?.prefix ?? '');
   const [firstName, setFirstName]   = useState(editData?.firstName ?? '');
@@ -140,6 +158,11 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
   const [panNumber, setPan]       = useState(editData?.panNumber ?? '');
   const [bloodGroup, setBloodGroup] = useState(editData?.bloodGroup ?? '');
 
+  // ── Emergency Contact ─────────────────────────────────────────────────────
+  const [emergencyContactName, setEmergName] = useState(editData?.emergencyContactName ?? '');
+  const [emergencyContactPhone, setEmergPhone] = useState(editData?.emergencyContactPhone ?? '');
+  const [emergencyContactRelation, setEmergRel] = useState(editData?.emergencyContactRelation ?? '');
+
   // ── Social Media ──────────────────────────────────────────────────────────
   const [facebook, setFacebook]   = useState(editData?.facebook ?? '');
   const [instagram, setInstagram] = useState(editData?.instagram ?? '');
@@ -151,6 +174,14 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
   const [designation, setDesignation] = useState(editData?.designation ?? '');
   const [grade, setGrade]             = useState(editData?.grade ?? '');
   const [department, setDepartment]   = useState(editData?.department ?? '');
+  const [departmentId, setDepartmentId] = useState(editData?.departmentId ?? '');
+  const [divisionId, setDivisionId]     = useState(editData?.divisionId ?? '');
+  const [designationId, setDesignationId] = useState(editData?.designationId ?? '');
+  const [gradeBandId, setGradeBandId]   = useState(editData?.gradeBandId ?? '');
+  const [employmentStatus, setEmploymentStatus] = useState(editData?.employmentStatus ?? 'ACTIVE');
+  const [employmentType, setEmploymentType] = useState(editData?.employmentType ?? 'PERMANENT');
+  const [dateOfConfirmation, setDOC] = useState(editData?.dateOfConfirmation ? editData.dateOfConfirmation.split('T')[0] : '');
+  const [noticePeriodDays, setNoticePeriod] = useState(editData?.noticePeriodDays ?? 30);
   const [dateOfJoining, setDOJ]       = useState(editData?.dateOfJoining ? editData.dateOfJoining.split('T')[0] : '');
   const [hqIds, setHqIds]             = useState<string[]>(
     editData?.territories?.map((t: any) => t.territoryId) ?? (editData?.hqId ? [editData.hqId] : [])
@@ -207,7 +238,21 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
         spouseName: spouseName || undefined, dependents: dependents !== '' ? Number(dependents) : undefined,
         aadharNumber: aadharNumber || undefined, panNumber: panNumber || undefined, bloodGroup: bloodGroup || undefined,
         facebook: facebook || undefined, instagram: instagram || undefined, twitter: twitter || undefined, linkedin: linkedin || undefined,
-        role, designation: designation || undefined, grade: grade || undefined, department: department || undefined,
+        role,
+        designation: designation || undefined,
+        grade: grade || undefined,
+        department: department || undefined,
+        departmentId: departmentId || undefined,
+        divisionId: divisionId || undefined,
+        designationId: designationId || undefined,
+        gradeBandId: gradeBandId || undefined,
+        employmentStatus: employmentStatus || undefined,
+        employmentType: employmentType || undefined,
+        dateOfConfirmation: dateOfConfirmation ? new Date(dateOfConfirmation).toISOString() : undefined,
+        noticePeriodDays: noticePeriodDays !== '' ? Number(noticePeriodDays) : 30,
+        emergencyContactName: emergencyContactName || undefined,
+        emergencyContactPhone: emergencyContactPhone || undefined,
+        emergencyContactRelation: emergencyContactRelation || undefined,
         dateOfJoining: dateOfJoining ? new Date(dateOfJoining).toISOString() : undefined,
         hqIds, managerId: managerId || undefined, profilePhoto: profilePhoto || undefined,
       };
@@ -387,7 +432,7 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
             {/* ─── 5. Identity ─── */}
             <section>
               <SectionHeader icon={CreditCard} label="Identity Documents" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Field label="Aadhar Number">
                   <input value={aadharNumber} onChange={e => setAadhar(e.target.value)} placeholder="XXXX XXXX XXXX" maxLength={14} className={inputCls} />
                 </Field>
@@ -399,6 +444,22 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
                     <option value="">Select</option>
                     {BLOOD_GROUPS.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
+                </Field>
+              </div>
+            </section>
+
+            {/* ─── 5B. Emergency Contacts ─── */}
+            <section>
+              <SectionHeader icon={Shield} label="Emergency Contact (HR Mandatory)" />
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Emergency Contact Name">
+                  <input value={emergencyContactName} onChange={e => setEmergName(e.target.value)} placeholder="Full name of contact" className={inputCls} />
+                </Field>
+                <Field label="Emergency Phone">
+                  <input value={emergencyContactPhone} onChange={e => setEmergPhone(e.target.value)} placeholder="+91 XXXXX XXXXX" className={inputCls} />
+                </Field>
+                <Field label="Relationship">
+                  <input value={emergencyContactRelation} onChange={e => setEmergRel(e.target.value)} placeholder="e.g. Spouse, Father, Mother" className={inputCls} />
                 </Field>
               </div>
             </section>
@@ -427,7 +488,7 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
 
             {/* ─── 7. Employment ─── */}
             <section>
-              <SectionHeader icon={Briefcase} label="Employment Details" />
+              <SectionHeader icon={Briefcase} label="Employment & Organization Structure" />
               <div className="grid grid-cols-3 gap-3">
                 <Field label="Role" required>
                   <select value={role} onChange={e => setRole(e.target.value)} className={selectCls}>
@@ -435,29 +496,126 @@ export default function EmployeeForm({ onClose, editData }: EmployeeFormProps) {
                     {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
                 </Field>
-                <Field label="Designation">
-                  <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="e.g. Senior MR" className={inputCls} />
-                </Field>
-                <Field label="Grade">
-                  <select value={grade} onChange={e => setGrade(e.target.value)} className={selectCls}>
-                    <option value="">Select grade</option>
-                    {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+
+                <Field label="Department">
+                  <select
+                    value={departmentId}
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      setDepartmentId(selectedId);
+                      const matched = deptList.find((d: any) => d.id === selectedId);
+                      if (matched) setDepartment(matched.name);
+                    }}
+                    className={selectCls}
+                  >
+                    <option value="">Select department</option>
+                    {deptList.map((d: any) => (
+                      <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                    ))}
                   </select>
                 </Field>
-                <Field label="Department">
-                  <div className="relative">
-                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                    <select value={department} onChange={e => setDepartment(e.target.value)} className={`${selectCls} pl-9`}>
-                      <option value="">Select department</option>
-                      {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
+
+                <Field label="Division">
+                  <select
+                    value={divisionId}
+                    onChange={e => setDivisionId(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="">Select division</option>
+                    {divList.map((dv: any) => (
+                      <option key={dv.id} value={dv.id}>{dv.name} ({dv.code})</option>
+                    ))}
+                  </select>
                 </Field>
+
+                <Field label="Designation">
+                  <select
+                    value={designationId}
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      setDesignationId(selectedId);
+                      const matched = desigList.find((ds: any) => ds.id === selectedId);
+                      if (matched) {
+                        setDesignation(matched.name);
+                        if (matched.gradeBandId) setGradeBandId(matched.gradeBandId);
+                      }
+                    }}
+                    className={selectCls}
+                  >
+                    <option value="">Select designation</option>
+                    {desigList.map((ds: any) => (
+                      <option key={ds.id} value={ds.id}>{ds.name} ({ds.code})</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Grade Band">
+                  <select
+                    value={gradeBandId}
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      setGradeBandId(selectedId);
+                      const matched = gradeList.find((g: any) => g.id === selectedId);
+                      if (matched) setGrade(matched.code);
+                    }}
+                    className={selectCls}
+                  >
+                    <option value="">Select grade band</option>
+                    {gradeList.map((g: any) => (
+                      <option key={g.id} value={g.id}>{g.name} ({g.code})</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Employment Status">
+                  <select
+                    value={employmentStatus}
+                    onChange={e => setEmploymentStatus(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="ON_NOTICE">On Notice</option>
+                    <option value="SUSPENDED">Suspended</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </Field>
+
+                <Field label="Employment Type">
+                  <select
+                    value={employmentType}
+                    onChange={e => setEmploymentType(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="PERMANENT">Permanent</option>
+                    <option value="PROBATION">Probation</option>
+                    <option value="CONTRACT">Contract</option>
+                    <option value="CONSULTANT">Consultant</option>
+                    <option value="TRAINEE">Trainee</option>
+                  </select>
+                </Field>
+
                 <Field label="Date of Joining">
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                     <input value={dateOfJoining} onChange={e => setDOJ(e.target.value)} type="date" className={`${inputCls} pl-9`} />
                   </div>
+                </Field>
+
+                <Field label="Confirmation Date">
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <input value={dateOfConfirmation} onChange={e => setDOC(e.target.value)} type="date" className={`${inputCls} pl-9`} />
+                  </div>
+                </Field>
+
+                <Field label="Notice Period (Days)">
+                  <input
+                    type="number"
+                    min={0}
+                    value={noticePeriodDays}
+                    onChange={e => setNoticePeriod(Number(e.target.value))}
+                    className={inputCls}
+                  />
                 </Field>
                 <Field label="Headquarters (Territories) Assigned">
                   <div className="border border-gray-200 rounded-xl overflow-hidden h-40 overflow-y-auto bg-gray-50/50">

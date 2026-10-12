@@ -65,7 +65,7 @@ export default function EmployeeDossierPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'doctors' | 'visits' | 'orders'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'hrms' | 'assignments' | 'movements' | 'doctors' | 'visits' | 'orders'>('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPwdModal, setShowPwdModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -76,6 +76,20 @@ export default function EmployeeDossierPage() {
   const { data: dossier, isLoading, isError, refetch } = useQuery({
     queryKey: ['employee-dossier', id],
     queryFn: () => api.get(`/employees/${id}/dossier`).then((r) => r.data.data),
+    enabled: !!id,
+  });
+
+  // 2. Fetch assignments history
+  const { data: assignments = [] } = useQuery({
+    queryKey: ['employee-assignments', id],
+    queryFn: () => api.get(`/hrms/assignments/user/${id}`).then((r) => r.data.data),
+    enabled: !!id,
+  });
+
+  // 3. Fetch movements history
+  const { data: movements = [] } = useQuery({
+    queryKey: ['employee-movements', id],
+    queryFn: () => api.get('/hrms/assignments/movements', { params: { userId: id } }).then((r) => r.data.data),
     enabled: !!id,
   });
 
@@ -277,9 +291,12 @@ export default function EmployeeDossierPage() {
       </div>
 
       {/* ── TABS NAVIGATION ── */}
-      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-2xl w-fit">
+      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-2xl w-fit overflow-x-auto max-w-full">
         {[
           { key: 'overview', label: 'Master Overview', icon: User },
+          { key: 'hrms', label: 'HR & Org Profile', icon: Building2 },
+          { key: 'assignments', label: `HQ Allocations (${assignments.length})`, icon: MapPin },
+          { key: 'movements', label: `Lifecycle Log (${movements.length})`, icon: TrendingUp },
           { key: 'doctors', label: `Assigned Doctors (${doctors.length})`, icon: Stethoscope },
           { key: 'visits', label: `Field Calls (${visits.length})`, icon: Activity },
           { key: 'orders', label: `Commercial Orders (${orders.length})`, icon: ShoppingCart },
@@ -511,6 +528,261 @@ export default function EmployeeDossierPage() {
           </div>
         );
       })()}
+
+      {/* ── TAB: HR & ORGANIZATION PROFILE ── */}
+      {activeTab === 'hrms' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Org Placement */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Building2 className="w-4 h-4 text-emerald-600" /> Organizational Placement
+              </h2>
+
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Employment Status</span>
+                  <span className={`font-bold px-2.5 py-0.5 rounded-full ${
+                    emp.employmentStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' :
+                    emp.employmentStatus === 'ON_NOTICE' ? 'bg-amber-100 text-amber-800' :
+                    emp.employmentStatus === 'SUSPENDED' ? 'bg-rose-100 text-rose-800' :
+                    'bg-slate-100 text-slate-700'
+                  }`}>
+                    {emp.employmentStatus || (emp.isActive ? 'ACTIVE' : 'INACTIVE')}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Employment Type</span>
+                  <span className="font-bold text-slate-900">{emp.employmentType || 'PERMANENT'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Department</span>
+                  <span className="font-bold text-slate-900">{emp.departmentRel?.name || emp.department || 'Sales & Marketing'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Division</span>
+                  <span className="font-bold text-slate-900">{emp.divisionRel?.name || 'General Pharma'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Designation</span>
+                  <span className="font-bold text-slate-900">{emp.designationRel?.name || emp.designation || emp.role}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Grade / Band</span>
+                  <span className="font-bold text-slate-900">{emp.gradeBandRel?.name || emp.grade || 'G1'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Date of Joining</span>
+                  <span className="font-bold text-slate-900">{emp.dateOfJoining ? formatDate(emp.dateOfJoining) : '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Confirmation Date</span>
+                  <span className="font-bold text-slate-900">{emp.dateOfConfirmation ? formatDate(emp.dateOfConfirmation) : 'Under Probation'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <span className="font-semibold text-slate-500">Notice Period</span>
+                  <span className="font-bold text-slate-900">{emp.noticePeriodDays || 30} Days</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency & Identity Verification */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Shield className="w-4 h-4 text-emerald-600" /> Emergency & Compliance Records
+              </h2>
+
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Emergency Contact Name</span>
+                  <span className="font-bold text-slate-900">{emp.emergencyContactName || '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Emergency Phone</span>
+                  <span className="font-bold text-slate-900">{emp.emergencyContactPhone || '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Relationship</span>
+                  <span className="font-bold text-slate-900">{emp.emergencyContactRelation || '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Blood Group</span>
+                  <span className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md">{emp.bloodGroup || '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Date of Birth</span>
+                  <span className="font-bold text-slate-900">{emp.dateOfBirth ? formatDate(emp.dateOfBirth) : '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">Aadhar Number</span>
+                  <span className="font-mono font-bold text-slate-900">{emp.aadharNumber || 'Verified in HR Dossier'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="font-semibold text-slate-500">PAN Number</span>
+                  <span className="font-mono font-bold text-slate-900">{emp.panNumber || '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <span className="font-semibold text-slate-500">Current Base HQ</span>
+                  <span className="font-bold text-emerald-800">{emp.hq?.name || 'Unassigned'} ({emp.hq?.code || '—'})</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: TERRITORY & HQ ALLOCATION TIMELINE ── */}
+      {activeTab === 'assignments' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-600" /> Headquarter & Territory Allocation History
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Each assignment is effective-dated. Historical doctor visits stay tied to the historical HQ assignment.
+              </p>
+            </div>
+
+            <Link
+              href="/dashboard/workforce/assignments"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors"
+            >
+              Transfer Rep
+            </Link>
+          </div>
+
+          {assignments.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs">
+              No historical assignments recorded yet. Current HQ: {emp.hq?.name || 'Unassigned'}
+            </div>
+          ) : (
+            <div className="relative pl-6 border-l-2 border-emerald-200 space-y-6 ml-3">
+              {assignments.map((asg: any) => (
+                <div key={asg.id} className="relative group">
+                  <div className={`absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-2 border-white ${
+                    asg.isCurrent ? 'bg-emerald-600 ring-4 ring-emerald-100' : 'bg-slate-300'
+                  }`} />
+
+                  <div className={`p-4 rounded-2xl border ${
+                    asg.isCurrent ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50/60 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-slate-900 text-sm">
+                        {asg.hq?.name || 'Unassigned HQ'} ({asg.hq?.code || '—'})
+                      </span>
+                      {asg.isCurrent && (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          Active Assignment
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-slate-600 space-y-1 mt-2">
+                      <div>
+                        <span className="text-slate-400">Tenure:</span>{' '}
+                        <span className="font-semibold text-slate-800">{formatDate(asg.effectiveFrom)}</span>
+                        {asg.effectiveTo && <span> → {formatDate(asg.effectiveTo)}</span>}
+                      </div>
+                      {asg.manager && (
+                        <div>
+                          <span className="text-slate-400">Reporting Manager:</span>{' '}
+                          <span className="text-slate-800">{asg.manager.firstName} {asg.manager.lastName}</span>
+                        </div>
+                      )}
+                      {asg.reason && (
+                        <div className="text-slate-500 italic mt-1 pt-1 border-t border-slate-200/50">
+                          &quot;{asg.reason}&quot;
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: EMPLOYEE LIFECYCLE MOVEMENTS ── */}
+      {activeTab === 'movements' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-600" /> Lifecycle Movements & Promotions
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Audited transitions including promotions, transfers, designations, and status adjustments.
+              </p>
+            </div>
+
+            <Link
+              href="/dashboard/workforce/movements"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors"
+            >
+              Record Movement
+            </Link>
+          </div>
+
+          {movements.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs">
+              No lifecycle movements logged for this employee yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {movements.map((m: any) => (
+                <div key={m.id} className="py-4 flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800">
+                        {m.movementType}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Effective: {formatDate(m.effectiveDate)}
+                      </span>
+                    </div>
+
+                    <div className="text-sm font-semibold text-slate-900 mt-1.5">
+                      {m.newValue || 'Updated'}
+                      {m.previousValue && (
+                        <span className="text-xs text-slate-400 font-normal ml-2">
+                          (Was: {m.previousValue})
+                        </span>
+                      )}
+                    </div>
+
+                    {m.reason && (
+                      <p className="text-xs text-slate-500 italic mt-0.5">&quot;{m.reason}&quot;</p>
+                    )}
+                  </div>
+
+                  {m.approvedBy && (
+                    <span className="text-[11px] text-slate-400 font-medium shrink-0">
+                      Auth: {m.approvedBy.firstName} {m.approvedBy.lastName}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── TAB 2: ASSIGNED DOCTORS ── */}
       {activeTab === 'doctors' && (

@@ -12,7 +12,8 @@ import {
   CheckSquare, Megaphone, TrendingUp, FlaskConical, Database, Target,
   Sparkles, Boxes, UserCog, LineChart, CheckCircle2, GraduationCap,
   FileSpreadsheet, Receipt, CalendarOff, Gift, MonitorPlay, Warehouse,
-  Search, X, Activity, ShieldCheck, Bell, SlidersHorizontal, Route, Plus
+  Search, X, Activity, ShieldCheck, Bell, SlidersHorizontal, Route, Plus,
+  Network, Briefcase, Layers, AlertTriangle, Award, UserCheck
 } from 'lucide-react';
 
 interface NavItem {
@@ -250,6 +251,28 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Workforce & HRMS',
+    icon: Users,
+    accentColor: '#10B981',
+    badge: 'HR',
+    items: [
+      { label: 'Employee Master & Dossier', href: '/dashboard/masters/employees', icon: UserCog, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'] },
+      { label: 'Organization Structure', href: '/dashboard/workforce/organization', icon: Building2, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN'], badge: 'Org', badgeColor: 'bg-emerald-100 text-emerald-800' },
+      { label: 'Reporting Tree & Hierarchy', href: '/dashboard/workforce/reporting-tree', icon: Network, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'] },
+      { label: 'Territory Allocations & Transfers', href: '/dashboard/workforce/assignments', icon: MapPin, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'], badge: 'Transfer', badgeColor: 'bg-blue-100 text-blue-700' },
+      { label: 'Employee Movements Register', href: '/dashboard/workforce/movements', icon: TrendingUp, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN'] },
+      { label: 'Daily Attendance Register', href: '/dashboard/workforce/attendance', icon: Clock, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'], badge: 'Daily', badgeColor: 'bg-emerald-100 text-emerald-800' },
+      { label: 'Attendance Exceptions', href: '/dashboard/workforce/attendance/exceptions', icon: AlertTriangle, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'], badge: 'Alerts', badgeColor: 'bg-amber-100 text-amber-800' },
+      { label: 'Attendance Regularization', href: '/dashboard/workforce/attendance/regularization', icon: CheckSquare, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'] },
+      { label: 'Leave Applications & Approvals', href: '/dashboard/workforce/leave/applications', icon: CalendarOff, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'], badge: 'Leaves', badgeColor: 'bg-purple-100 text-purple-700' },
+      { label: 'Leave Policies & Types', href: '/dashboard/workforce/leave/policies', icon: Layers, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN'] },
+      { label: 'Holiday Calendar', href: '/dashboard/workforce/leave/holidays', icon: Calendar, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'] },
+      { label: 'Manager Command Center', href: '/dashboard/workforce/manager-workspace', icon: UserCheck, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'], badge: 'Command', badgeColor: 'bg-indigo-100 text-indigo-700' },
+      { label: 'Employee Documents Vault', href: '/dashboard/workforce/documents', icon: FileText, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'], badge: 'Vault', badgeColor: 'bg-emerald-100 text-emerald-800' },
+      { label: 'Field Incentives & Schemes', href: '/dashboard/workforce/incentives', icon: Award, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'], badge: 'Payouts', badgeColor: 'bg-amber-100 text-amber-800' },
+    ],
+  },
+  {
     title: 'Master Data',
     icon: Database,
     accentColor: '#059669',
@@ -282,6 +305,7 @@ export default function Sidebar({
     'Overview': true,
     'CRM & Network': true,
     'Field Operations': true,
+    'Workforce & HRMS': true,
     'Sales & Commercials': false,
     'Detailing & Training': false,
     'Management & AI': false,
