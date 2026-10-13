@@ -8,7 +8,7 @@ import { formatDate, VISIT_STATUS_COLORS, APPROVAL_STATUS_COLORS } from '@/lib/u
 import {
   ClipboardList, Plus, MapPin, Loader2, X, CheckCircle, Users,
   Store, Truck, Building2, Mic, Camera, AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Route,
-  Sparkles, Clock
+  Sparkles, Clock, Ban, CheckSquare, Square, Trash2
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
@@ -23,6 +23,15 @@ const TABS: { type: VisitTab; label: string; icon: any }[] = [
   { type: 'DISTRIBUTOR', label: 'Distributor Visits', icon: Truck },
 ];
 
+const CANCEL_REASON_OPTIONS = [
+  { id: 'WRONG_ROUTE', label: 'Wrong territory / route planned by mistake (गलती से गलत लोकेशन/रूट प्लान)' },
+  { id: 'REASSIGNED', label: 'MR reassigned to a different area for today (MR को आज दूसरी लोकेशन भेजा गया)' },
+  { id: 'ON_LEAVE', label: 'MR on emergency leave / sickness today (MR अवकाश या इमरजेंसी पर है)' },
+  { id: 'CLOSED', label: 'Doctor clinic / chemist market closed or unavailable' },
+  { id: 'TOUR_PLAN_RESCHEDULED', label: 'Tour plan rescheduled / revised by management' },
+  { id: 'OTHER', label: 'Other custom reason (अन्य कारण)' },
+];
+
 export default function VisitsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<VisitTab>('DOCTOR');
@@ -31,6 +40,14 @@ export default function VisitsPage() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [page, setPage] = useState(1);
+
+  // Bulk Cancel states
+  const [selectedVisitIds, setSelectedVisitIds] = useState<string[]>([]);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelPreset, setCancelPreset] = useState('WRONG_ROUTE');
+  const [cancelNotes, setCancelNotes] = useState('');
+  const [includeActiveInCancel, setIncludeActiveInCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   // Common visit fields
   const [form, setForm] = useState({ visitType: 'DOCTOR' as VisitTab, plannedDate: new Date().toISOString().slice(0, 10), notes: '' });
@@ -106,6 +123,38 @@ export default function VisitsPage() {
     mutationFn: (id: string) => api.patch(`/visits/${id}/approve`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['visits'] }),
   });
+
+  const bulkCancelMutation = useMutation({
+    mutationFn: (body: any) => api.post('/visits/bulk-cancel', body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['visits'] });
+      setSelectedVisitIds([]);
+      setShowCancelModal(false);
+      setCancelNotes('');
+      setCancelError(null);
+    },
+    onError: (err: any) => {
+      setCancelError(err?.response?.data?.message || err?.message || 'Failed to cancel visits');
+    },
+  });
+
+  const handleConfirmCancel = () => {
+    if (selectedVisitIds.length === 0) return;
+    const opt = CANCEL_REASON_OPTIONS.find((o) => o.id === cancelPreset);
+    let reason = opt ? opt.label : cancelPreset;
+    if (cancelNotes.trim()) {
+      reason += ` — Remarks: ${cancelNotes.trim()}`;
+    }
+    bulkCancelMutation.mutate({
+      visitIds: selectedVisitIds,
+      reason,
+      includeActive: includeActiveInCancel,
+    });
+  };
+
+  const cancellableVisitsInPage = (data?.visits || []).filter((v: any) =>
+    ['PLANNED', 'CHECKED_IN', 'PAUSED'].includes(v.status)
+  );
 
   const handleCheckIn = (visitId: string) => {
     setCheckingIn(visitId);
@@ -232,12 +281,60 @@ export default function VisitsPage() {
         })}
       </div>
 
+      {/* Bulk Cancel Action Toolbar */}
+      {selectedVisitIds.length > 0 && (
+        <div className="bg-rose-50/90 border border-rose-200 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse" />
+            <span className="text-xs font-bold text-rose-950">
+              {selectedVisitIds.length} planned visit{selectedVisitIds.length === 1 ? '' : 's'} selected for bulk action
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedVisitIds([])}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-xl hover:bg-rose-100/60 transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCancelModal(true)}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-sm shadow-rose-600/20 transition-all"
+            >
+              <Ban className="w-3.5 h-3.5" />
+              <span>Bulk Cancel Selected ({selectedVisitIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Visits Table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="w-10 px-4 py-3.5 text-left">
+                  <input
+                    type="checkbox"
+                    checked={
+                      cancellableVisitsInPage.length > 0 &&
+                      cancellableVisitsInPage.every((v: any) => selectedVisitIds.includes(v.id))
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedVisitIds(Array.from(new Set([...selectedVisitIds, ...cancellableVisitsInPage.map((v: any) => v.id)])));
+                      } else {
+                        const idsToRemove = new Set(cancellableVisitsInPage.map((v: any) => v.id));
+                        setSelectedVisitIds(selectedVisitIds.filter(id => !idsToRemove.has(id)));
+                      }
+                    }}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    title="Select all cancellable visits on page"
+                  />
+                </th>
                 {['Target', 'Date', 'Duration', activeTab === 'DOCTOR' ? 'Products' : 'Notes Summary', 'GPS', 'Status', 'Approval', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
@@ -246,67 +343,98 @@ export default function VisitsPage() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>{Array.from({ length: 8 }).map((_, j) => <td key={j} className="px-5 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>)}</tr>
+                  <tr key={i}>{Array.from({ length: 9 }).map((_, j) => <td key={j} className="px-5 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>)}</tr>
                 ))
               ) : data?.visits?.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-16 text-gray-400">
+                <tr><td colSpan={9} className="text-center py-16 text-gray-400">
                   <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="font-medium">No {activeTab.toLowerCase()} visits yet</p>
                   <button onClick={() => setShowForm(true)} className="text-emerald-600 text-sm font-medium mt-2">Plan your first visit →</button>
                 </td></tr>
               ) : (
-                data?.visits?.map((visit: any) => (
-                  <tr key={visit.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-4 font-bold text-gray-900">
-                      <Link href={`/dashboard/visits/${visit.id}`} className="hover:text-emerald-700 hover:underline">
-                        {visit.doctor ? `Dr. ${visit.doctor.firstName} ${visit.doctor.lastName}` :
-                         visit.retailer ? visit.retailer.name :
-                         visit.distributor ? visit.distributor.name : '—'}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-4 text-gray-500 text-xs">{formatDate(visit.plannedDate)}</td>
-                    <td className="px-5 py-4 text-gray-500 text-xs">{visit.durationMinutes ? `${visit.durationMinutes}m` : '—'}</td>
-                    <td className="px-5 py-4 text-gray-500 text-xs max-w-xs truncate">
-                      {activeTab === 'DOCTOR' ? (visit.productsDiscussed?.slice(0, 2).join(', ') || '—') : (visit.notes ? visit.notes.slice(0, 60) + '…' : '—')}
-                    </td>
-                    <td className="px-5 py-4">
-                      {visit.checkInLat ? (
-                        <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium"><MapPin className="w-3 h-3" />GPS</span>
-                      ) : <span className="text-xs text-gray-300">—</span>}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${VISIT_STATUS_COLORS[visit.status]}`}>{visit.status}</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${APPROVAL_STATUS_COLORS[visit.approvalStatus]}`}>{visit.approvalStatus}</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/dashboard/visits/${visit.id}`}
-                          className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors"
-                        >
-                          Dossier
+                data?.visits?.map((visit: any) => {
+                  const canCancel = ['PLANNED', 'CHECKED_IN', 'PAUSED'].includes(visit.status);
+                  return (
+                    <tr key={visit.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="w-10 px-4 py-4">
+                        {canCancel ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedVisitIds.includes(visit.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedVisitIds(prev => [...prev, visit.id]);
+                              } else {
+                                setSelectedVisitIds(prev => prev.filter(id => id !== visit.id));
+                              }
+                            }}
+                            className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                        ) : null}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-gray-900">
+                        <Link href={`/dashboard/visits/${visit.id}`} className="hover:text-emerald-700 hover:underline">
+                          {visit.doctor ? `Dr. ${visit.doctor.firstName} ${visit.doctor.lastName}` :
+                           visit.retailer ? visit.retailer.name :
+                           visit.distributor ? visit.distributor.name : '—'}
                         </Link>
-                        {visit.status === 'PLANNED' && (
-                          <button onClick={() => handleCheckIn(visit.id)} disabled={checkingIn === visit.id} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg disabled:opacity-50">
-                            {checkingIn === visit.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />} Check In
-                          </button>
-                        )}
-                        {visit.status === 'CHECKED_IN' && (
-                          <Link href={`/dashboard/visits/${visit.id}/report`} className="flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg">
-                            Submit Report
+                      </td>
+                      <td className="px-5 py-4 text-gray-500 text-xs">{formatDate(visit.plannedDate)}</td>
+                      <td className="px-5 py-4 text-gray-500 text-xs">{visit.durationMinutes ? `${visit.durationMinutes}m` : '—'}</td>
+                      <td className="px-5 py-4 text-gray-500 text-xs max-w-xs truncate">
+                        {activeTab === 'DOCTOR' ? (visit.productsDiscussed?.slice(0, 2).join(', ') || '—') : (visit.notes ? visit.notes.slice(0, 60) + '…' : '—')}
+                      </td>
+                      <td className="px-5 py-4">
+                        {visit.checkInLat ? (
+                          <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium"><MapPin className="w-3 h-3" />GPS</span>
+                        ) : <span className="text-xs text-gray-300">—</span>}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${VISIT_STATUS_COLORS[visit.status]}`}>{visit.status}</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${APPROVAL_STATUS_COLORS[visit.approvalStatus]}`}>{visit.approvalStatus}</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/dashboard/visits/${visit.id}`}
+                            className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                          >
+                            Dossier
                           </Link>
-                        )}
-                        {isManager(user?.role || '') && visit.approvalStatus === 'PENDING' && visit.status === 'COMPLETED' && (
-                          <button onClick={() => approveMutation.mutate(visit.id)} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg">
-                            <CheckCircle className="w-3 h-3" /> Approve
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {visit.status === 'PLANNED' && (
+                            <>
+                              <button onClick={() => handleCheckIn(visit.id)} disabled={checkingIn === visit.id} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg disabled:opacity-50">
+                                {checkingIn === visit.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />} Check In
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedVisitIds([visit.id]);
+                                  setShowCancelModal(true);
+                                }}
+                                className="flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition-colors"
+                                title="Cancel planned call"
+                              >
+                                <Ban className="w-3 h-3" /> Cancel
+                              </button>
+                            </>
+                          )}
+                          {visit.status === 'CHECKED_IN' && (
+                            <Link href={`/dashboard/visits/${visit.id}/report`} className="flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg">
+                              Submit Report
+                            </Link>
+                          )}
+                          {isManager(user?.role || '') && visit.approvalStatus === 'PENDING' && visit.status === 'COMPLETED' && (
+                            <button onClick={() => approveMutation.mutate(visit.id)} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg">
+                              <CheckCircle className="w-3 h-3" /> Approve
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -492,6 +620,117 @@ export default function VisitsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Cancel Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                  <Ban className="w-5 h-5 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Cancel Planned Visits</h3>
+                  <p className="text-xs text-slate-500">
+                    {selectedVisitIds.length} visit{selectedVisitIds.length === 1 ? '' : 's'} selected
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelError(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            {cancelError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+                {cancelError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Reason for Cancellation *
+                </label>
+                <select
+                  value={cancelPreset}
+                  onChange={(e) => setCancelPreset(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                >
+                  {CANCEL_REASON_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  value={cancelNotes}
+                  onChange={(e) => setCancelNotes(e.target.value)}
+                  placeholder="e.g. Assigned to another territory or rescheduled..."
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900 font-medium cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeActiveInCancel}
+                  onChange={(e) => setIncludeActiveInCancel(e.target.checked)}
+                  className="rounded text-rose-600 focus:ring-rose-500"
+                />
+                <span>Also cancel in-progress / checked-in calls</span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelError(null);
+                }}
+                disabled={bulkCancelMutation.isPending}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Keep Visits
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={bulkCancelMutation.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all shadow-sm shadow-rose-600/20 disabled:opacity-50"
+              >
+                {bulkCancelMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Confirm Cancellation</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
