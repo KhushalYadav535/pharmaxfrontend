@@ -212,20 +212,48 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
         }
 
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rawRows: any[] = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+        const raw2D: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
 
-        if (!rawRows || rawRows.length === 0) {
+        if (!raw2D || raw2D.length === 0) {
           alert('Excel / CSV sheet contains no data rows.');
           setIsParsingFile(false);
           return;
         }
 
-        const getVal = (row: any, ...keys: string[]): string => {
+        // Smart Header Row Detection:
+        // Many sheets have title banners (e.g. "DOCTOR List for HQ : Nagpur") in row 1 or empty rows.
+        // We score each row in the first 10 rows to find the true table header.
+        let bestHeaderIdx = 0;
+        let maxScore = -1;
+        for (let i = 0; i < Math.min(10, raw2D.length); i++) {
+          const row = raw2D[i];
+          if (!Array.isArray(row)) continue;
+          const nonEmptyCells = row.filter((c: any) => String(c || '').trim().length > 0);
+          if (nonEmptyCells.length < 2) continue; // Skip single-cell banner rows!
+
+          let score = 0;
+          for (const cell of nonEmptyCells) {
+            const c = String(cell).toLowerCase().replace(/[\s_-]/g, '');
+            if (['doctorname', 'drname', 'name', 'fullname', 'firstname', 'lastname'].includes(c)) score += 5;
+            else if (['specialty', 'specialisation', 'designation', 'qualification', 'degree'].includes(c)) score += 4;
+            else if (['phone', 'mobile', 'mobileno', 'contact', 'cell', 'mobilenumber'].includes(c)) score += 3;
+            else if (['area', 'city', 'address', 'hq', 'headquarter', 'territory'].includes(c)) score += 3;
+            else if (['email', 'emailid', 'sn', 'srno', 'code', 'doctorcode', 'category', 'classification'].includes(c)) score += 2;
+          }
+          if (score > maxScore) {
+            maxScore = score;
+            bestHeaderIdx = i;
+          }
+        }
+
+        const headers: string[] = (raw2D[bestHeaderIdx] || []).map((h: any) => String(h || '').trim());
+
+        const getVal = (rowObj: Record<string, string>, ...keys: string[]): string => {
           for (const k of keys) {
             const cleanK = k.toLowerCase().replace(/[\s_-]/g, '');
-            for (const rk of Object.keys(row)) {
+            for (const rk of Object.keys(rowObj)) {
               if (rk.toLowerCase().replace(/[\s_-]/g, '') === cleanK) {
-                const v = row[rk];
+                const v = rowObj[rk];
                 if (v !== undefined && v !== null && String(v).trim() !== '') {
                   return String(v).trim();
                 }
@@ -235,34 +263,79 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
           return '';
         };
 
-        const parsed = rawRows.map((row: any, idx: number) => {
-          const fullName = getVal(row, 'name', 'doctorName', 'doctor_name', 'fullName', 'drName');
-          let fName = getVal(row, 'firstName', 'first_name', 'fName');
-          let lName = getVal(row, 'lastName', 'last_name', 'lName');
-          if (!fName && fullName) {
-            const parts = fullName.replace(/^Dr\.?\s+/i, '').split(' ');
-            fName = parts[0] || `Doctor${idx + 1}`;
-            lName = parts.slice(1).join(' ') || 'MD';
+        const capitalize = (str: string) => (str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '');
+
+        const parsed: any[] = [];
+        for (let rIdx = bestHeaderIdx + 1; rIdx < raw2D.length; rIdx++) {
+          const rowCells = raw2D[rIdx];
+          if (!rowCells || !rowCells.length) continue;
+
+          const rowObj: Record<string, string> = {};
+          headers.forEach((h, colIdx) => {
+            if (h) {
+              const val = rowCells[colIdx];
+              rowObj[h] = val !== undefined && val !== null ? String(val).trim() : '';
+            }
+          });
+
+          // Extract Doctor Name
+          const fullName = getVal(rowObj, 'doctorName', 'doctor_name', 'drName', 'name', 'fullName', 'firstName');
+          // If row has no name, or is purely numeric (like empty trailing rows [84]), skip!
+          if (!fullName || fullName.length < 2 || /^\d+$/.test(fullName)) {
+            continue;
           }
 
-          return {
-            doctorCode: getVal(row, 'doctorCode', 'doctor_code', 'docCode', 'code'),
-            salutation: getVal(row, 'salutation', 'title') || 'Dr.',
-            firstName: fName || `Doctor${idx + 1}`,
-            lastName: lName || 'MD',
-            specialty: getVal(row, 'specialty', 'specialisation', 'specialization') || 'GENERAL_PRACTICE',
-            qualification: getVal(row, 'qualification', 'qual', 'degree') || 'MBBS',
-            classification: getVal(row, 'classification', 'class', 'grade') || 'A',
-            category: getVal(row, 'category', 'cat', 'detailingCategory') || 'CORE',
-            city: getVal(row, 'city', 'district') || '',
-            state: getVal(row, 'state') || '',
-            phone: getVal(row, 'phone', 'mobile', 'mobileNumber', 'contactNumber', 'cell'),
-            email: getVal(row, 'email', 'mail'),
-            address: getVal(row, 'address', 'clinicAddress', 'address1'),
-            pin: getVal(row, 'pin', 'pincode', 'postalCode'),
-            hqCode: getVal(row, 'hqCode', 'headquarterCode', 'hq', 'headquarter'),
-          };
-        });
+          // Clean up "Dr.", "Dr ", etc.
+          let cleanName = fullName.replace(/^Dr\.?\s*/i, '').trim();
+          const parts = cleanName.split(/\s+/).filter(Boolean);
+          if (parts.length === 0) continue;
+
+          const fName = capitalize(parts[0]);
+          const lName = parts.length > 1 ? parts.slice(1).map(capitalize).join(' ') : 'Consultant';
+
+          // Smart specialty mapping from designation / qualification
+          const designation = getVal(rowObj, 'designation', 'qualification', 'qual', 'degree');
+          const specialtyRaw = getVal(rowObj, 'specialty', 'specialisation', 'specialization');
+          let mappedSpecialty = specialtyRaw || 'GENERAL_PRACTICE';
+          const desigLower = (designation || specialtyRaw).toLowerCase();
+          if (desigLower.includes('dgo') || desigLower.includes('gyn') || desigLower.includes('obs')) {
+            mappedSpecialty = 'GYNECOLOGY';
+          } else if (desigLower.includes('paed') || desigLower.includes('ped')) {
+            mappedSpecialty = 'PEDIATRICS';
+          } else if (desigLower.includes('cardio')) {
+            mappedSpecialty = 'CARDIOLOGY';
+          } else if (desigLower.includes('ortho')) {
+            mappedSpecialty = 'ORTHOPEDICS';
+          } else if (desigLower.includes('gp') || desigLower.includes('physician')) {
+            mappedSpecialty = 'GENERAL_PRACTICE';
+          } else if (designation) {
+            mappedSpecialty = designation;
+          }
+
+          parsed.push({
+            doctorCode: getVal(rowObj, 'doctorCode', 'doctor_code', 'docCode', 'code'),
+            salutation: 'Dr.',
+            firstName: fName,
+            lastName: lName,
+            specialty: mappedSpecialty,
+            qualification: designation || getVal(rowObj, 'qualification', 'qual', 'degree') || 'MBBS',
+            classification: getVal(rowObj, 'classification', 'class', 'grade') || 'A',
+            category: getVal(rowObj, 'category', 'cat', 'detailingCategory') || 'CORE',
+            city: getVal(rowObj, 'area', 'city', 'district') || '',
+            state: getVal(rowObj, 'state') || '',
+            phone: getVal(rowObj, 'mobileNo', 'mobile_no', 'phone', 'mobile', 'mobileNumber', 'contactNumber', 'cell'),
+            email: getVal(rowObj, 'emailId', 'email_id', 'email', 'mail'),
+            address: getVal(rowObj, 'address', 'clinicAddress', 'address1'),
+            pin: getVal(rowObj, 'pin', 'pincode', 'postalCode'),
+            hqCode: getVal(rowObj, 'hqCode', 'headquarterCode', 'hq', 'headquarter'),
+          });
+        }
+
+        if (parsed.length === 0) {
+          alert('Could not find any valid doctor records in sheet. Please verify column headers.');
+          setIsParsingFile(false);
+          return;
+        }
 
         setImportPreview(parsed);
       } catch (err: any) {
