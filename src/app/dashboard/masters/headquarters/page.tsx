@@ -1,22 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import Link from 'next/link';
 import {
   Building2, Plus, Search, Loader2, ChevronLeft, ChevronRight,
   Pencil, Trash2, MapPin, Globe, Users, Stethoscope, Store,
-  Package, ExternalLink, X, Phone, Star, ShieldCheck, ArrowRight
+  Package, ExternalLink, X, Phone, Star, ShieldCheck, ArrowRight,
+  AlertTriangle
 } from 'lucide-react';
 import HeadquarterForm from '@/components/masters/HeadquarterForm';
 import AddDoctorModal from '@/components/doctors/AddDoctorModal';
+import { useAuth } from '@/lib/auth-context';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function HeadquarterMasterPage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = ['SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'].includes(user?.role || '');
+
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
@@ -26,10 +31,28 @@ export default function HeadquarterMasterPage() {
   // HQ Doctor Drawer state
   const [selectedHqForDoctors, setSelectedHqForDoctors] = useState<any>(null);
   const [doctorSearch, setDoctorSearch] = useState('');
+  const [selectedDrawerDocIds, setSelectedDrawerDocIds] = useState<string[]>([]);
+  const [hqToBulkDeleteDoctors, setHqToBulkDeleteDoctors] = useState<any | null>(null);
+  const [showDrawerBulkDeleteModal, setShowDrawerBulkDeleteModal] = useState(false);
 
   // Add Doctor Modal state
   const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
   const [addDoctorHqId, setAddDoctorHqId] = useState('');
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (payload: { doctorIds?: string[]; hqId?: string; deleteAllInHq?: boolean }) =>
+      api.post('/doctors/bulk-delete', payload),
+    onSuccess: (res: any) => {
+      alert(res.data?.message || 'Doctors deleted successfully');
+      setSelectedDrawerDocIds([]);
+      setHqToBulkDeleteDoctors(null);
+      setShowDrawerBulkDeleteModal(false);
+      qc.invalidateQueries({ queryKey: ['headquarters'] });
+      qc.invalidateQueries({ queryKey: ['hq-doctors'] });
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+    },
+    onError: (err: any) => alert(err.response?.data?.message || 'Bulk delete failed'),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['headquarters', search, page],
@@ -229,15 +252,26 @@ export default function HeadquarterMasterPage() {
 
                     {/* Doctors Count (Clickable to view HQ Doctors) */}
                     <td className="px-5 py-4">
-                      <button
-                        onClick={() => { setSelectedHqForDoctors(hq); setDoctorSearch(''); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/90 transition-all font-bold text-xs group"
-                        title="Click to view doctors in this headquarter"
-                      >
-                        <Stethoscope className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{hq._count?.doctors ?? 0} Doctors</span>
-                        <ArrowRight className="w-3 h-3 text-emerald-500 group-hover:translate-x-0.5 transition-transform" />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => { setSelectedHqForDoctors(hq); setDoctorSearch(''); setSelectedDrawerDocIds([]); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/90 transition-all font-bold text-xs group"
+                          title="Click to view and manage doctors in this headquarter"
+                        >
+                          <Stethoscope className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{hq._count?.doctors ?? 0} Doctors</span>
+                          <ArrowRight className="w-3 h-3 text-emerald-500 group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                        {isAdmin && (hq._count?.doctors ?? 0) > 0 && (
+                          <button
+                            onClick={() => setHqToBulkDeleteDoctors(hq)}
+                            className="p-1 hover:bg-rose-50 rounded-lg text-rose-400 hover:text-rose-600 transition-colors border border-transparent hover:border-rose-200"
+                            title={`Bulk delete all ${hq._count?.doctors} doctors in ${hq.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     {/* Hospitals Count */}
@@ -365,16 +399,26 @@ export default function HeadquarterMasterPage() {
                   {filteredHqDoctors.length} Doctors Registered in this Headquarter
                 </span>
                 <div className="flex items-center gap-2">
+                  {isAdmin && (selectedHqForDoctors._count?.doctors ?? filteredHqDoctors.length) > 0 && (
+                    <button
+                      onClick={() => setHqToBulkDeleteDoctors(selectedHqForDoctors)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors"
+                      title="Delete all doctors in this headquarter"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete All in HQ</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => { setAddDoctorHqId(selectedHqForDoctors.id); setShowAddDoctorModal(true); }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-2xs"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Add Doctor to HQ</span>
+                    <span>Add Doctor</span>
                   </button>
                   <Link
                     href={`/dashboard/doctors?hqId=${selectedHqForDoctors.id}`}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-emerald-700"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-emerald-700 px-2 py-1.5 rounded-xl hover:bg-slate-100"
                   >
                     <span>Full Directory</span>
                     <ExternalLink className="w-3 h-3" />
@@ -390,6 +434,40 @@ export default function HeadquarterMasterPage() {
                   placeholder="Filter doctors by name, doctor code, specialty, category..."
                   className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
+              </div>
+
+              {/* Select all & bulk delete selection controls */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    checked={filteredHqDoctors.length > 0 && selectedDrawerDocIds.length === filteredHqDoctors.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedDrawerDocIds(filteredHqDoctors.map((d: any) => d.id));
+                      } else {
+                        setSelectedDrawerDocIds([]);
+                      }
+                    }}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span>Select All ({filteredHqDoctors.length})</span>
+                </label>
+
+                {selectedDrawerDocIds.length > 0 && isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-rose-600">
+                      {selectedDrawerDocIds.length} selected
+                    </span>
+                    <button
+                      onClick={() => setShowDrawerBulkDeleteModal(true)}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors shadow-2xs"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Delete Selected ({selectedDrawerDocIds.length})</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -407,66 +485,87 @@ export default function HeadquarterMasterPage() {
                   <p className="text-[11px] text-slate-400 mt-1">Try another search keyword or add doctors to this headquarter.</p>
                 </div>
               ) : (
-                filteredHqDoctors.map((doc: any) => (
-                  <div
-                    key={doc.id}
-                    className="p-3.5 rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:bg-emerald-50/20 transition-all bg-white shadow-2xs space-y-2"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm text-slate-900">Dr. {doc.firstName} {doc.lastName}</span>
-                          {doc.doctorCode && (
-                            <span className="px-1.5 py-0.2 rounded font-mono text-[10px] font-black bg-emerald-50 border border-emerald-200 text-emerald-800">
-                              {doc.doctorCode}
-                            </span>
-                          )}
-                          {doc.isKol && (
-                            <span className="flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[9px] font-bold">
-                              <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> KOL
-                            </span>
-                          )}
+                filteredHqDoctors.map((doc: any) => {
+                  const isChecked = selectedDrawerDocIds.includes(doc.id);
+                  return (
+                    <div
+                      key={doc.id}
+                      className={`p-3.5 rounded-2xl border transition-all bg-white shadow-2xs space-y-2 ${
+                        isChecked
+                          ? 'border-emerald-400 bg-emerald-50/30'
+                          : 'border-slate-200/90 hover:border-emerald-300 hover:bg-emerald-50/20'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDrawerDocIds((prev) => [...prev, doc.id]);
+                              } else {
+                                setSelectedDrawerDocIds((prev) => prev.filter((id) => id !== doc.id));
+                              }
+                            }}
+                            className="mt-1 rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-slate-900">Dr. {doc.firstName} {doc.lastName}</span>
+                              {doc.doctorCode && (
+                                <span className="px-1.5 py-0.2 rounded font-mono text-[10px] font-black bg-emerald-50 border border-emerald-200 text-emerald-800">
+                                  {doc.doctorCode}
+                                </span>
+                              )}
+                              {doc.isKol && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[9px] font-bold">
+                                  <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> KOL
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                              {doc.qualification ? `${doc.qualification} · ` : ''}{doc.specialty || 'General Practitioner'}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                          {doc.qualification ? `${doc.qualification} · ` : ''}{doc.specialty || 'General Practitioner'}
-                        </p>
+
+                        <Link
+                          href={`/dashboard/doctors/${doc.id}`}
+                          className="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors flex-shrink-0"
+                        >
+                          Profile →
+                        </Link>
                       </div>
 
-                      <Link
-                        href={`/dashboard/doctors/${doc.id}`}
-                        className="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors"
-                      >
-                        Profile →
-                      </Link>
+                      <div className="flex items-center gap-2 flex-wrap pt-1 text-[11px] text-slate-500 border-t border-slate-100">
+                        {doc.category && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-800 font-bold text-[10px]">
+                            {doc.category}
+                          </span>
+                        )}
+                        {doc.hospital?.name && (
+                          <span className="flex items-center gap-1 text-slate-600">
+                            <Building2 className="w-3 h-3 text-slate-400" />
+                            {doc.hospital.name}
+                          </span>
+                        )}
+                        {doc.phone && (
+                          <span className="flex items-center gap-1 text-slate-600">
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            {doc.phone}
+                          </span>
+                        )}
+                        {doc.city && (
+                          <span className="flex items-center gap-1 text-slate-400">
+                            <MapPin className="w-3 h-3" />
+                            {doc.city}
+                          </span>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-2 flex-wrap pt-1 text-[11px] text-slate-500 border-t border-slate-100">
-                      {doc.category && (
-                        <span className="px-1.5 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-800 font-bold text-[10px]">
-                          {doc.category}
-                        </span>
-                      )}
-                      {doc.hospital?.name && (
-                        <span className="flex items-center gap-1 text-slate-600">
-                          <Building2 className="w-3 h-3 text-slate-400" />
-                          {doc.hospital.name}
-                        </span>
-                      )}
-                      {doc.phone && (
-                        <span className="flex items-center gap-1 text-slate-600">
-                          <Phone className="w-3 h-3 text-slate-400" />
-                          {doc.phone}
-                        </span>
-                      )}
-                      {doc.city && (
-                        <span className="flex items-center gap-1 text-slate-400">
-                          <MapPin className="w-3 h-3" />
-                          {doc.city}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -480,6 +579,105 @@ export default function HeadquarterMasterPage() {
                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800"
               >
                 Close Dossier
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ──────────────── MODAL: BULK DELETE ALL DOCTORS IN HQ ──────────────── */}
+      {hqToBulkDeleteDoctors && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete All Doctors in Headquarter?</h3>
+                <p className="text-xs text-rose-600 font-semibold mt-0.5">
+                  HQ: {hqToBulkDeleteDoctors.name} ({hqToBulkDeleteDoctors.code})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-800 space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5 text-rose-950">
+                <AlertTriangle className="w-4 h-4 text-rose-600" /> Caution: Complete Headquarter Doctor Wipe
+              </p>
+              <p>
+                Are you sure you want to delete <strong>ALL</strong> registered doctors in{' '}
+                <strong>{hqToBulkDeleteDoctors.name}</strong>?
+              </p>
+              <p className="text-[11px] text-rose-700">
+                Active doctor profiles will be removed from this territory. Past call logs and chemist linkages will remain intact for reporting.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setHqToBulkDeleteDoctors(null)}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkDeleteMutation.mutate({ hqId: hqToBulkDeleteDoctors.id, deleteAllInHq: true })}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {bulkDeleteMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Yes, Delete All in {hqToBulkDeleteDoctors.name}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────────── MODAL: BULK DELETE SELECTED DRAWER DOCTORS ──────────────── */}
+      {showDrawerBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete {selectedDrawerDocIds.length} Selected Doctors?</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  From {selectedHqForDoctors?.name}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                <AlertTriangle className="w-4 h-4 text-amber-600" /> Confirmation Required
+              </p>
+              <p>
+                You are deleting <strong>{selectedDrawerDocIds.length}</strong> doctors from this headquarter territory. They will no longer appear on MR visits or active rosters.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDrawerBulkDeleteModal(false)}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkDeleteMutation.mutate({ doctorIds: selectedDrawerDocIds })}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {bulkDeleteMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Yes, Delete {selectedDrawerDocIds.length} Doctors
               </button>
             </div>
           </div>

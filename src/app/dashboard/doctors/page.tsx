@@ -71,8 +71,26 @@ function DoctorsPageContent() {
   const [importHqId, setImportHqId] = useState(initialHqId);
   const [importResult, setImportResult] = useState<any | null>(null);
   const [isParsingFile, setIsParsingFile] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [showHqDeleteConfirmModal, setShowHqDeleteConfirmModal] = useState(false);
 
   const qc = useQueryClient();
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (payload: { doctorIds?: string[]; hqId?: string; deleteAllInHq?: boolean }) =>
+      api.post('/doctors/bulk-delete', payload),
+    onSuccess: (res: any) => {
+      alert(res.data?.message || 'Doctors deleted successfully');
+      setSelectedDocIds([]);
+      setShowBulkDeleteModal(false);
+      setShowHqDeleteConfirmModal(false);
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['headquarters-list'] });
+      qc.invalidateQueries({ queryKey: ['headquarters'] });
+      qc.invalidateQueries({ queryKey: ['doctor-compliance-doctors-page'] });
+    },
+    onError: (err: any) => alert(err.response?.data?.message || 'Bulk delete failed'),
+  });
 
   // Fetch compliance data for zero-call doctors
   const { data: complianceData } = useQuery({
@@ -463,14 +481,26 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
             <Building2 className="w-4 h-4 text-emerald-600" />
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Territory / Headquarter Doctor Filter:</span>
           </div>
-          {hqId && (
-            <button
-              onClick={() => { setHqId(''); setPage(1); }}
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-800"
-            >
-              Reset to All Headquarters
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {hqId && isAdmin && (
+              <button
+                onClick={() => setShowHqDeleteConfirmModal(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1 rounded-xl border border-rose-200 transition-colors"
+                title="Bulk delete all doctors assigned to this headquarter"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete All Doctors in {headquarters.find((h: any) => h.id === hqId)?.name || 'HQ'}</span>
+              </button>
+            )}
+            {hqId && (
+              <button
+                onClick={() => { setHqId(''); setPage(1); }}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800"
+              >
+                Reset to All Headquarters
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:h-1.5">
           <button
@@ -887,7 +917,7 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
       )}
       {/* ──────────────── FLOATING BULK ACTIONS BAR ──────────────── */}
       {selectedDocIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4">
           <div className="text-xs font-bold">
             <span className="text-emerald-400 font-black">{selectedDocIds.length}</span> Doctors Selected
           </div>
@@ -895,14 +925,122 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
             onClick={() => setShowTransferModal(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-2xs"
           >
-            <ArrowLeftRight className="w-3.5 h-3.5" /> Transfer to Territory / HQ
+            <ArrowLeftRight className="w-3.5 h-3.5" /> Transfer HQ
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowBulkDeleteModal(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shadow-2xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Bulk Delete ({selectedDocIds.length})
+            </button>
+          )}
           <button
             onClick={() => setSelectedDocIds([])}
-            className="text-xs font-bold text-slate-400 hover:text-white"
+            className="text-xs font-bold text-slate-400 hover:text-white ml-1"
           >
             Cancel Selection
           </button>
+        </div>
+      )}
+
+      {/* ──────────────── MODAL: BULK DELETE SELECTED DOCTORS ──────────────── */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Bulk Delete {selectedDocIds.length} Doctors?</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Selected doctors across directory
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                <AlertTriangle className="w-4 h-4 text-amber-600" /> Warning
+              </p>
+              <p>
+                Deleting these <strong>{selectedDocIds.length}</strong> doctors will remove them from active MR call lists, tour planning, and territory directory. Historical call logs and compliance records are safely preserved for auditing.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkDeleteMutation.mutate({ doctorIds: selectedDocIds })}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {bulkDeleteMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Yes, Delete {selectedDocIds.length} Doctors
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────────── MODAL: BULK DELETE ALL DOCTORS IN ACTIVE HQ ──────────────── */}
+      {showHqDeleteConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete All Doctors in Headquarter?</h3>
+                <p className="text-xs text-rose-600 font-semibold mt-0.5">
+                  HQ: {headquarters.find((h: any) => h.id === hqId)?.name || 'Selected HQ'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-800 space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5 text-rose-950">
+                <AlertTriangle className="w-4 h-4 text-rose-600" /> Caution: Complete Headquarter Doctor Wipe
+              </p>
+              <p>
+                Are you sure you want to delete <strong>ALL</strong> doctors currently assigned to{' '}
+                <strong>{headquarters.find((h: any) => h.id === hqId)?.name}</strong>?
+              </p>
+              <p className="text-[11px] text-rose-700">
+                Active doctor profiles will be removed from this territory. Past call logs and chemist linkages will be preserved for audits.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowHqDeleteConfirmModal(false)}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkDeleteMutation.mutate({ hqId, deleteAllInHq: true })}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {bulkDeleteMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Yes, Delete All in {headquarters.find((h: any) => h.id === hqId)?.name}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
