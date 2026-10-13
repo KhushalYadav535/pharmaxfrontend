@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Send, AlertCircle, ChevronDown, User, Phone, Mail, MapPin, Calendar, Stethoscope, Tag, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Send, AlertCircle, ChevronDown, User, Phone, Mail, MapPin, Calendar, Stethoscope, Tag, Loader2, Building2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { INDIAN_STATES, INDIAN_STATES_AND_DISTRICTS } from '@/lib/constants';
@@ -29,6 +29,8 @@ export default function DoctorForm({
   initialData?: any;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const defaultHqParam = searchParams?.get('hqId') || '';
 
   // Queries
   const { data: areaList = [] } = useQuery({
@@ -84,9 +86,15 @@ export default function DoctorForm({
   const [geoTag, setGeoTag]                   = useState(initialData?.geoTag || '');
   const [areaId, setAreaId]                   = useState(initialData?.areaId || '');
   const [territoryId, setTerritoryId]         = useState(initialData?.territoryId || '');
-  const [hqId, setHqId]                       = useState(initialData?.hqId || '');
+  const [hqId, setHqId]                       = useState(initialData?.hqId || defaultHqParam);
   const [hospitalId, setHospitalId]           = useState(initialData?.hospitalId || '');
   const [retailerId, setRetailerId]           = useState(initialData?.retailerId || '');
+
+  useEffect(() => {
+    if (defaultHqParam && !hqId) {
+      setHqId(defaultHqParam);
+    }
+  }, [defaultHqParam]);
   const [productIds, setProductIds]           = useState<string[]>(initialData?.products?.map((p: any) => p.id || p.productId) || []);
   const [website, setWebsite]                 = useState(initialData?.website || '');
   const [facebook, setFacebook]               = useState(initialData?.facebook || '');
@@ -193,6 +201,42 @@ export default function DoctorForm({
       </div>
 
       <div className="px-6 py-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+
+        {/* ── Headquarter & Territory Assignment ── */}
+        <div className="md:col-span-2 lg:col-span-3 xl:col-span-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-950 block">
+                Primary Headquarter (HQ) Territory <span className="text-rose-500">*</span>
+              </span>
+              <span className="text-[11px] text-emerald-700 block">
+                Doctor will be mapped to this headquarter and its assigned field representatives
+              </span>
+            </div>
+          </div>
+          <div className="w-full sm:w-80">
+            <select
+              value={hqId}
+              onChange={e => {
+                setHqId(e.target.value);
+                const selected = hqList.find((h: any) => h.id === e.target.value);
+                if (selected) {
+                  if (!city && selected.district) setCity(selected.district);
+                  if (selected.state) setState(selected.state);
+                }
+              }}
+              className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs cursor-pointer"
+            >
+              <option value="">-- Select Headquarter (HQ) --</option>
+              {hqList.map((h: any) => (
+                <option key={h.id} value={h.id}>{h.name} ({h.code}) — {h.district || h.state}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {/* ── Identity ── */}
         <SectionDivider label="Identity" />

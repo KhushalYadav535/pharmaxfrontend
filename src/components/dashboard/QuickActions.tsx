@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Users, FileText, ShoppingCart, Eye, Receipt, Package } from 'lucide-react';
 
 const ACTIONS = [
-  { icon: Users, label: 'Add Doctor', href: '/dashboard/doctors' },
+  { icon: Users, label: 'Add Doctor', href: '/dashboard/doctors?action=new' },
   { icon: FileText, label: 'Add Call Report', href: '/dashboard/visits' },
   { icon: ShoppingCart, label: 'Place Order', href: '/dashboard/orders' },
   { icon: Eye, label: 'View Stock', href: '/dashboard/samples' },

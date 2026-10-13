@@ -10,6 +10,7 @@ import {
   Package, ExternalLink, X, Phone, Star, ShieldCheck, ArrowRight
 } from 'lucide-react';
 import HeadquarterForm from '@/components/masters/HeadquarterForm';
+import AddDoctorModal from '@/components/doctors/AddDoctorModal';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
@@ -25,6 +26,10 @@ export default function HeadquarterMasterPage() {
   // HQ Doctor Drawer state
   const [selectedHqForDoctors, setSelectedHqForDoctors] = useState<any>(null);
   const [doctorSearch, setDoctorSearch] = useState('');
+
+  // Add Doctor Modal state
+  const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
+  const [addDoctorHqId, setAddDoctorHqId] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['headquarters', search, page],
@@ -78,6 +83,16 @@ export default function HeadquarterMasterPage() {
         />
       )}
 
+      <AddDoctorModal
+        isOpen={showAddDoctorModal}
+        onClose={() => setShowAddDoctorModal(false)}
+        defaultHqId={addDoctorHqId}
+        onDoctorAdded={() => {
+          qc.invalidateQueries({ queryKey: ['headquarters'] });
+          qc.invalidateQueries({ queryKey: ['hq-doctors'] });
+        }}
+      />
+
       <div className="max-w-7xl mx-auto space-y-6 py-6 px-4">
 
         {/* ── Header ── */}
@@ -90,7 +105,7 @@ export default function HeadquarterMasterPage() {
               Geographic territories breakdown — monitor active doctors, hospitals, retail chemists, and field force per headquarter
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link
               href="/dashboard/doctors"
               className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors border border-slate-200"
@@ -98,8 +113,15 @@ export default function HeadquarterMasterPage() {
               <Users className="w-4 h-4 text-slate-500" /> Doctor Directory
             </Link>
             <button
+              onClick={() => { setAddDoctorHqId(''); setShowAddDoctorModal(true); }}
+              id="admin-add-doctor-btn"
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20"
+            >
+              <Plus className="w-4 h-4" /> Add Doctor
+            </button>
+            <button
               onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
             >
               <Plus className="w-4 h-4" /> Add Headquarter
             </button>
@@ -252,6 +274,13 @@ export default function HeadquarterMasterPage() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={() => { setAddDoctorHqId(hq.id); setShowAddDoctorModal(true); }}
+                          className="p-1.5 hover:bg-emerald-50 rounded-lg text-emerald-600 transition-colors"
+                          title={`Add Doctor to ${hq.name}`}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => { setSelectedHqForDoctors(hq); setDoctorSearch(''); }}
                           className="p-1.5 hover:bg-emerald-50 rounded-lg text-emerald-600 transition-colors"
                           title="View Doctors"
@@ -331,17 +360,26 @@ export default function HeadquarterMasterPage() {
 
             {/* Quick Actions & Search in Drawer */}
             <div className="p-4 border-b border-slate-100 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-bold text-slate-700">
                   {filteredHqDoctors.length} Doctors Registered in this Headquarter
                 </span>
-                <Link
-                  href={`/dashboard/doctors?hqId=${selectedHqForDoctors.id}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800"
-                >
-                  <span>Open Full Doctor Directory</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setAddDoctorHqId(selectedHqForDoctors.id); setShowAddDoctorModal(true); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Doctor to HQ</span>
+                  </button>
+                  <Link
+                    href={`/dashboard/doctors?hqId=${selectedHqForDoctors.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-emerald-700"
+                  >
+                    <span>Full Directory</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
               </div>
 
               <div className="relative">

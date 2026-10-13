@@ -34,6 +34,8 @@ import {
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import DoctorDetailingPlanModal from '@/components/operations/DoctorDetailingPlanModal';
+import AddDoctorModal from '@/components/doctors/AddDoctorModal';
+import * as XLSX from 'xlsx';
 
 const CLASSIFICATIONS = ['A_PLUS', 'A', 'B', 'C'];
 const APPROVAL_STATUSES = [
@@ -65,6 +67,10 @@ function DoctorsPageContent() {
   const [zeroCallOnly, setZeroCallOnly] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
+  const [importHqId, setImportHqId] = useState(initialHqId);
+  const [importResult, setImportResult] = useState<any | null>(null);
+  const [isParsingFile, setIsParsingFile] = useState(false);
 
   const qc = useQueryClient();
 
@@ -87,23 +93,79 @@ function DoctorsPageContent() {
   });
 
   const bulkImportMutation = useMutation({
-    mutationFn: (doctors: any[]) => api.post('/doctors/bulk', { doctors }),
+    mutationFn: (payload: { doctors: any[]; hqId?: string }) => api.post('/doctors/bulk', payload),
     onSuccess: (res: any) => {
-      alert(res.data?.message || 'Doctors successfully imported');
+      setImportResult(res.data?.data);
       setShowImportModal(false);
       setImportPreview([]);
       setImportFile(null);
       qc.invalidateQueries({ queryKey: ['doctors'] });
       qc.invalidateQueries({ queryKey: ['headquarters-list'] });
+      qc.invalidateQueries({ queryKey: ['headquarters'] });
     },
     onError: (err: any) => alert(err.response?.data?.message || 'Bulk import failed'),
   });
 
+  const downloadSampleDoctorExcel = () => {
+    const sampleData = [
+      {
+        doctorCode: 'DOC-101',
+        salutation: 'Dr.',
+        firstName: 'Rajesh',
+        lastName: 'Sharma',
+        specialty: 'CARDIOLOGY',
+        qualification: 'MD MBBS',
+        classification: 'A',
+        category: 'CORE',
+        city: 'Nagpur',
+        state: 'Maharashtra',
+        phone: '9876543210',
+        email: 'dr.rajesh@example.com',
+        address: 'Dhantoli Medical Center',
+      },
+      {
+        doctorCode: 'DOC-102',
+        salutation: 'Dr.',
+        firstName: 'Pooja',
+        lastName: 'Deshmukh',
+        specialty: 'PEDIATRICS',
+        qualification: 'DCH MBBS',
+        classification: 'A_PLUS',
+        category: 'CORE',
+        city: 'Nagpur',
+        state: 'Maharashtra',
+        phone: '9876543211',
+        email: 'dr.pooja@example.com',
+        address: 'Ramdaspeth Clinic',
+      },
+      {
+        doctorCode: 'DOC-103',
+        salutation: 'Dr.',
+        firstName: 'Amit',
+        lastName: 'Verma',
+        specialty: 'GENERAL_PRACTICE',
+        qualification: 'MBBS',
+        classification: 'B',
+        category: 'SECONDARY',
+        city: 'Nagpur',
+        state: 'Maharashtra',
+        phone: '9876543212',
+        email: 'dr.amit@example.com',
+        address: 'Sitabuldi Square',
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Doctors_Template');
+    XLSX.writeFile(wb, 'Pharmax_Doctor_Import_Template.xlsx');
+  };
+
   const downloadSampleDoctorCSV = () => {
-    const csvSample = `doctorCode,firstName,lastName,specialty,qualification,classification,category,city,state,phone,email
-DOC-101,Rajesh,Sharma,CARDIOLOGY,MD MBBS,A,CORE,Nagpur,Maharashtra,9876543210,dr.rajesh@example.com
-DOC-102,Pooja,Deshmukh,PEDIATRICS,DCH MBBS,A_PLUS,CORE,Nagpur,Maharashtra,9876543211,dr.pooja@example.com
-DOC-103,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876543212,dr.amit@example.com`;
+    const csvSample = `doctorCode,salutation,firstName,lastName,specialty,qualification,classification,category,city,state,phone,email,address
+DOC-101,Dr.,Rajesh,Sharma,CARDIOLOGY,MD MBBS,A,CORE,Nagpur,Maharashtra,9876543210,dr.rajesh@example.com,Dhantoli Medical Center
+DOC-102,Dr.,Pooja,Deshmukh,PEDIATRICS,DCH MBBS,A_PLUS,CORE,Nagpur,Maharashtra,9876543211,dr.pooja@example.com,Ramdaspeth Clinic
+DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876543212,dr.amit@example.com,Sitabuldi Square`;
 
     const blob = new Blob([csvSample], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -114,38 +176,96 @@ DOC-103,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,98765432
     URL.revokeObjectURL(url);
   };
 
-  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportFile(file);
+    setIsParsingFile(true);
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-      if (lines.length < 2) {
-        alert('CSV must contain a header row and at least 1 doctor record.');
-        return;
-      }
-      const headers = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
-      const parsed = lines.slice(1).map((line) => {
-        const values = line.split(',').map((v) => v.trim().replace(/^["']|["']$/g, ''));
-        const obj: any = {};
-        headers.forEach((h, idx) => {
-          obj[h] = values[idx] || '';
+      try {
+        const buffer = event.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          alert('Workbook is empty or cannot be read.');
+          setIsParsingFile(false);
+          return;
+        }
+
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+        if (!rawRows || rawRows.length === 0) {
+          alert('Excel / CSV sheet contains no data rows.');
+          setIsParsingFile(false);
+          return;
+        }
+
+        const getVal = (row: any, ...keys: string[]): string => {
+          for (const k of keys) {
+            const cleanK = k.toLowerCase().replace(/[\s_-]/g, '');
+            for (const rk of Object.keys(row)) {
+              if (rk.toLowerCase().replace(/[\s_-]/g, '') === cleanK) {
+                const v = row[rk];
+                if (v !== undefined && v !== null && String(v).trim() !== '') {
+                  return String(v).trim();
+                }
+              }
+            }
+          }
+          return '';
+        };
+
+        const parsed = rawRows.map((row: any, idx: number) => {
+          const fullName = getVal(row, 'name', 'doctorName', 'doctor_name', 'fullName', 'drName');
+          let fName = getVal(row, 'firstName', 'first_name', 'fName');
+          let lName = getVal(row, 'lastName', 'last_name', 'lName');
+          if (!fName && fullName) {
+            const parts = fullName.replace(/^Dr\.?\s+/i, '').split(' ');
+            fName = parts[0] || `Doctor${idx + 1}`;
+            lName = parts.slice(1).join(' ') || 'MD';
+          }
+
+          return {
+            doctorCode: getVal(row, 'doctorCode', 'doctor_code', 'docCode', 'code'),
+            salutation: getVal(row, 'salutation', 'title') || 'Dr.',
+            firstName: fName || `Doctor${idx + 1}`,
+            lastName: lName || 'MD',
+            specialty: getVal(row, 'specialty', 'specialisation', 'specialization') || 'GENERAL_PRACTICE',
+            qualification: getVal(row, 'qualification', 'qual', 'degree') || 'MBBS',
+            classification: getVal(row, 'classification', 'class', 'grade') || 'A',
+            category: getVal(row, 'category', 'cat', 'detailingCategory') || 'CORE',
+            city: getVal(row, 'city', 'district') || '',
+            state: getVal(row, 'state') || '',
+            phone: getVal(row, 'phone', 'mobile', 'mobileNumber', 'contactNumber', 'cell'),
+            email: getVal(row, 'email', 'mail'),
+            address: getVal(row, 'address', 'clinicAddress', 'address1'),
+            pin: getVal(row, 'pin', 'pincode', 'postalCode'),
+            hqCode: getVal(row, 'hqCode', 'headquarterCode', 'hq', 'headquarter'),
+          };
         });
-        return obj;
-      });
-      setImportPreview(parsed);
+
+        setImportPreview(parsed);
+      } catch (err: any) {
+        alert('Failed to read Excel / CSV file: ' + err.message);
+      } finally {
+        setIsParsingFile(false);
+      }
     };
-    reader.readAsText(file);
+
+    reader.readAsArrayBuffer(file);
   };
 
   useEffect(() => {
     const qHq = searchParams?.get('hqId');
     if (qHq) {
       setHqId(qHq);
+      setImportHqId(qHq);
       setPage(1);
+    }
+    if (searchParams?.get('action') === 'new') {
+      setShowAddDoctorModal(true);
     }
   }, [searchParams]);
 
@@ -278,13 +398,13 @@ DOC-103,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,98765432
             <Upload className="w-4 h-4 text-emerald-600" /> Import Excel / CSV
           </button>
 
-          <Link
-            href="/dashboard/doctors/new"
+          <button
+            onClick={() => { setShowAddDoctorModal(true); }}
             id="add-doctor-btn"
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20"
           >
             <Plus className="w-4 h-4" /> Add Doctor
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -520,7 +640,13 @@ DOC-103,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,98765432
                   <td colSpan={8} className="text-center py-16 text-slate-400">
                     <Users className="w-10 h-10 mx-auto mb-3 opacity-30 text-slate-400" />
                     <p className="font-semibold text-slate-600">No doctors match current filters</p>
-                    <p className="text-xs text-slate-400 mt-1">Try clearing filters or search terms</p>
+                    <p className="text-xs text-slate-400 mt-1">Try clearing filters or search terms, or add a new doctor</p>
+                    <button
+                      onClick={() => setShowAddDoctorModal(true)}
+                      className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm shadow-emerald-600/20"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add New Doctor
+                    </button>
                   </td>
                 </tr>
               ) : (
@@ -834,70 +960,146 @@ DOC-103,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,98765432
         </div>
       )}
 
-      {/* ──────────────── MODAL: BULK IMPORT DOCTORS ──────────────── */}
+      {/* ──────────────── MODAL: BULK IMPORT DOCTORS (EXCEL & CSV) ──────────────── */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Upload className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-base font-bold text-slate-900">Bulk Import Doctors (Excel / CSV)</h3>
+                <h3 className="text-base font-bold text-slate-900">Bulk Import Doctors (.xlsx / .csv)</h3>
               </div>
-              <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-700 text-xs font-bold">
+              <button
+                onClick={() => { setShowImportModal(false); setImportPreview([]); setImportFile(null); }}
+                className="text-slate-400 hover:text-slate-700 text-xs font-bold"
+              >
                 Cancel
               </button>
             </div>
 
-            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center justify-between gap-4">
+            {/* Template download card */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-xs font-bold text-slate-800 block">Download Excel / CSV Template</span>
-                <span className="text-[11px] text-slate-500 block">Contains required columns: doctorCode, firstName, lastName, specialty, city, phone</span>
+                <span className="text-xs font-bold text-slate-800 block">Download Import Templates</span>
+                <span className="text-[11px] text-slate-500 block">
+                  Columns: doctorCode, firstName, lastName, specialty, phone, qualification, city
+                </span>
               </div>
-              <button
-                onClick={downloadSampleDoctorCSV}
-                className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-2xs flex-shrink-0"
-              >
-                Download Sample
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={downloadSampleDoctorExcel}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  Excel (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadSampleDoctorCSV}
+                  className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-2xs flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  CSV (.csv)
+                </button>
+              </div>
             </div>
 
+            {/* Target Headquarter Selector */}
+            <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-3.5 space-y-1.5">
+              <label className="block text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                Target Headquarter (HQ) for Imported Doctors
+              </label>
+              <select
+                value={importHqId}
+                onChange={(e) => setImportHqId(e.target.value)}
+                className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs cursor-pointer"
+              >
+                <option value="">-- Auto-detect from sheet row or default HQ --</option>
+                {headquarters.map((hq: any) => (
+                  <option key={hq.id} value={hq.id}>
+                    {hq.name} ({hq.code}) — {hq.district || hq.state}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-emerald-700 font-medium">
+                💡 Doctors without a specific HQ code in the Excel sheet will be linked to this headquarter.
+              </p>
+            </div>
+
+            {/* File input */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Select .CSV File</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Select Excel (.xlsx, .xls) or CSV (.csv) File
+              </label>
               <input
                 type="file"
-                accept=".csv"
-                onChange={handleCSVUpload}
-                className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleFileUpload}
+                disabled={isParsingFile}
+                className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 rounded-2xl p-1 bg-slate-50/50"
               />
+              {isParsingFile && (
+                <div className="flex items-center gap-2 text-xs text-emerald-700 font-semibold mt-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Parsing Excel workbook...
+                </div>
+              )}
             </div>
 
+            {/* Smart Deduplication Alert */}
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-amber-900">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-[11px] leading-relaxed">
+                <strong className="font-bold text-amber-950">Automatic Deduplication Enabled:</strong> If your Excel sheet contains doctors that already exist in the database (matched by Phone, Code, Email, or Name in HQ), <strong>existing doctors will be safely skipped</strong> and only new ones will be added.
+              </div>
+            </div>
+
+            {/* Preview */}
             {importPreview.length > 0 && (
               <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-800">Preview ({importPreview.length} Doctors detected):</span>
-                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50/50 text-[11px]">
-                  {importPreview.slice(0, 5).map((row, idx) => (
-                    <div key={idx} className="py-1 border-b border-slate-100 last:border-0 text-slate-700 font-mono">
-                      <strong>{row.doctorCode || `DOC-${idx + 1}`}</strong>: Dr. {row.firstName} {row.lastName} ({row.specialty || 'General'}) · {row.city || 'Nagpur'}
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Detected in File: {importPreview.length} Doctors</span>
+                  {importHqId && (
+                    <span className="text-[11px] text-emerald-700 font-semibold">
+                      Target: {headquarters.find((h: any) => h.id === importHqId)?.name || 'HQ Selected'}
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-2xl p-2 bg-slate-50/60 text-[11px] divide-y divide-slate-100">
+                  {importPreview.slice(0, 10).map((row, idx) => (
+                    <div key={idx} className="py-1.5 flex items-center justify-between gap-2 text-slate-700">
+                      <div>
+                        <strong className="text-slate-900">{row.doctorCode || `DOC-${idx + 1}`}</strong>: {row.salutation} {row.firstName} {row.lastName}
+                        <span className="text-slate-400 ml-1">({row.specialty || 'General'})</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        {row.phone || 'No phone'} · {row.city || 'HQ'}
+                      </div>
                     </div>
                   ))}
-                  {importPreview.length > 5 && (
-                    <div className="text-slate-400 italic pt-1">... and {importPreview.length - 5} more records</div>
+                  {importPreview.length > 10 && (
+                    <div className="text-slate-500 italic pt-1.5 text-center text-[10px]">
+                      ... and {importPreview.length - 10} more records in file
+                    </div>
                   )}
                 </div>
               </div>
             )}
 
+            {/* Modal Actions */}
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <button
-                onClick={() => setShowImportModal(false)}
+                type="button"
+                onClick={() => { setShowImportModal(false); setImportPreview([]); setImportFile(null); }}
                 className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 disabled={importPreview.length === 0 || bulkImportMutation.isPending}
-                onClick={() => bulkImportMutation.mutate(importPreview)}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-2xs inline-flex items-center gap-1.5"
+                onClick={() => bulkImportMutation.mutate({ doctors: importPreview, hqId: importHqId || undefined })}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5"
               >
                 {bulkImportMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Confirm Import ({importPreview.length} Doctors)
@@ -906,6 +1108,88 @@ DOC-103,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,98765432
           </div>
         </div>
       )}
+
+      {/* ──────────────── MODAL: DEDUPLICATION & IMPORT RESULT SUMMARY ──────────────── */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-base font-black text-slate-900">Import Completed Successfully</h3>
+              </div>
+              <button onClick={() => setImportResult(null)} className="text-slate-400 hover:text-slate-700 text-xs font-bold">
+                ✕
+              </button>
+            </div>
+
+            {/* Summary statistics badges */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900">
+                <span className="text-2xl font-black block">{importResult.createdCount ?? 0}</span>
+                <span className="text-xs font-bold text-emerald-800">✅ New Doctors Added</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900">
+                <span className="text-2xl font-black block">{importResult.skippedCount ?? 0}</span>
+                <span className="text-xs font-bold text-amber-800">⚠️ Existing Skipped (No Duplicates)</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Processed a total of <strong>{importResult.totalRequested ?? 0}</strong> doctor records from your sheet.
+              {importResult.skippedCount > 0 ? (
+                <span>
+                  {' '}The <strong>{importResult.skippedCount}</strong> doctors already existing in the database were <em>not duplicated</em>; only the <strong>{importResult.createdCount}</strong> remaining doctors were added.
+                </span>
+              ) : (
+                <span> All records were newly registered without duplicates.</span>
+              )}
+            </p>
+
+            {/* Breakdown of skipped doctors */}
+            {importResult.skippedDoctors && importResult.skippedDoctors.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-700">
+                  Skipped Doctors ({importResult.skippedDoctors.length}):
+                </span>
+                <div className="max-h-36 overflow-y-auto border border-amber-200 rounded-xl p-2.5 bg-amber-50/50 text-[11px] space-y-1.5">
+                  {importResult.skippedDoctors.map((doc: any, i: number) => (
+                    <div key={i} className="flex items-start justify-between border-b border-amber-100 last:border-0 pb-1 text-slate-800">
+                      <div>
+                        <strong>{doc.name}</strong> {doc.phone ? `(${doc.phone})` : ''}
+                      </div>
+                      <span className="text-[10px] text-amber-800 font-semibold max-w-[180px] text-right">
+                        {doc.reason}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setImportResult(null)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-2xs"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────────── MODAL: ADD DOCTOR DIRECTLY ──────────────── */}
+      <AddDoctorModal
+        isOpen={showAddDoctorModal}
+        onClose={() => setShowAddDoctorModal(false)}
+        defaultHqId={hqId}
+        onDoctorAdded={() => {
+          qc.invalidateQueries({ queryKey: ['doctors'] });
+          qc.invalidateQueries({ queryKey: ['headquarters-list'] });
+        }}
+      />
     </div>
   );
 }
