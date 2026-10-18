@@ -8,7 +8,7 @@ import {
   Calendar, ArrowUpDown, ChevronRight, CheckCircle2, AlertCircle,
   Eye, RefreshCw, X, ShieldCheck, Phone, Mail, Building2, Smartphone,
   Monitor, Laptop, FileText, ArrowLeft, BarChart2, TrendingUp, Sparkles,
-  Info, Check, CalendarDays, ExternalLink, Printer
+  Info, Check, CalendarDays, ExternalLink, Printer, PhoneCall, ClipboardList
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,7 +23,7 @@ export default function MRActivityReportPage() {
 
   // Selected MR for Individual Detailed Report Drilldown Modal
   const [selectedMRId, setSelectedMRId] = useState<string | null>(null);
-  const [individualTab, setIndividualTab] = useState<'timeline' | 'sessions'>('timeline');
+  const [individualTab, setIndividualTab] = useState<'timeline' | 'sessions' | 'calls'>('timeline');
 
   // 1. Fetch Team Overview
   const {
@@ -231,7 +231,7 @@ export default function MRActivityReportPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         {/* ── KPI METRIC CARDS ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4">
           {/* Card 1: Online Status */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-emerald-300 transition-all">
             <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -z-0 opacity-60"></div>
@@ -266,7 +266,25 @@ export default function MRActivityReportPage() {
             </div>
           </div>
 
-          {/* Card 3: Total Logins */}
+          {/* Card 3: Total Field Calls */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-emerald-300 transition-all">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -z-0 opacity-60"></div>
+            <div className="flex items-center justify-between relative z-10 mb-2">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Field Calls</span>
+              <PhoneCall className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="relative z-10">
+              <div className="text-2xl font-bold text-emerald-700 tracking-tight flex items-baseline gap-1">
+                <span>{summary?.totalCallsCompleted || 0}</span>
+                <span className="text-xs font-normal text-slate-400">calls</span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
+                {summary?.totalDoctorCalls || 0} Dr • {summary?.totalChemistCalls || 0} Chemist
+              </p>
+            </div>
+          </div>
+
+          {/* Card 4: Total Logins */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-blue-300 transition-all">
             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -z-0 opacity-60"></div>
             <div className="flex items-center justify-between relative z-10 mb-2">
@@ -281,7 +299,7 @@ export default function MRActivityReportPage() {
             </div>
           </div>
 
-          {/* Card 4: Total Logouts */}
+          {/* Card 5: Total Logouts */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-amber-300 transition-all">
             <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 rounded-bl-full -z-0 opacity-60"></div>
             <div className="flex items-center justify-between relative z-10 mb-2">
@@ -296,7 +314,7 @@ export default function MRActivityReportPage() {
             </div>
           </div>
 
-          {/* Card 5: Avg Daily Hours */}
+          {/* Card 6: Avg Daily Hours */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-purple-300 transition-all">
             <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -z-0 opacity-60"></div>
             <div className="flex items-center justify-between relative z-10 mb-2">
@@ -311,19 +329,19 @@ export default function MRActivityReportPage() {
             </div>
           </div>
 
-          {/* Card 6: Top Active MR */}
+          {/* Card 7: Most Active */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-rose-300 transition-all">
             <div className="absolute top-0 right-0 w-16 h-16 bg-rose-50 rounded-bl-full -z-0 opacity-60"></div>
             <div className="flex items-center justify-between relative z-10 mb-2">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Most Active</span>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Top Calls / Rep</span>
               <Sparkles className="w-4 h-4 text-rose-500" />
             </div>
             <div className="relative z-10">
-              <div className="text-sm font-bold text-slate-900 truncate" title={summary?.topActiveMR?.name || '-'}>
-                {summary?.topActiveMR?.name || 'N/A'}
+              <div className="text-sm font-bold text-slate-900 truncate" title={summary?.topCallerMR?.name || summary?.topActiveMR?.name || '-'}>
+                {summary?.topCallerMR?.name || summary?.topActiveMR?.name || 'N/A'}
               </div>
               <p className="text-[11px] text-rose-600 font-semibold mt-0.5">
-                {summary?.topActiveMR?.hoursFormatted || '0h'} ({summary?.topActiveMR?.logins || 0} logins)
+                {summary?.topCallerMR ? `${summary.topCallerMR.callsCount} calls (${summary.topCallerMR.doctorCalls} Dr)` : `${summary?.topActiveMR?.hoursFormatted || '0h'}`}
               </p>
             </div>
           </div>
@@ -408,6 +426,12 @@ export default function MRActivityReportPage() {
                   <th className="py-3.5 px-3 text-center">Total Logouts</th>
                   <th className="py-3.5 px-4 text-center">App Logged In Hours</th>
                   <th className="py-3.5 px-3 text-center">Avg Daily Hours</th>
+                  <th className="py-3.5 px-3 text-center bg-emerald-50/50">
+                    <span className="inline-flex items-center gap-1 text-emerald-800 font-bold">
+                      <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Total Calls</span>
+                    </span>
+                  </th>
                   <th className="py-3.5 px-3 text-center">Today Activity</th>
                   <th className="py-3.5 px-4 text-right">Individual Action</th>
                 </tr>
@@ -415,14 +439,14 @@ export default function MRActivityReportPage() {
               <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
                 {loadingOverview ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
                       <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
                       Loading MR usage reports & telemetry...
                     </td>
                   </tr>
                 ) : mrList.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
                       <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                       No medical representatives found matching the criteria.
                     </td>
@@ -532,17 +556,47 @@ export default function MRActivityReportPage() {
                           {mr.avgDailyHoursFormatted}
                         </td>
 
-                        {/* Column 8: Today Activity */}
+                        {/* Column 8: Total Calls (Completed & Breakdown) */}
+                        <td className="py-3 px-3 text-center bg-emerald-50/20">
+                          <div className="inline-flex flex-col items-center">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                              mr.totalCallsCompleted > 0
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              <PhoneCall className={`w-3.5 h-3.5 ${mr.totalCallsCompleted > 0 ? 'text-emerald-600' : 'text-slate-400'}`} />
+                              <span>{mr.totalCallsCompleted || 0} calls</span>
+                            </span>
+                            <span className="text-[10px] text-slate-500 mt-1 font-medium">
+                              {mr.totalCallsCompleted > 0 ? (
+                                <span>
+                                  <span className="text-slate-800 font-semibold">{mr.doctorCalls || 0}</span> Dr •{' '}
+                                  <span className="text-slate-800 font-semibold">{mr.chemistCalls || 0}</span> Chem
+                                </span>
+                              ) : mr.totalCalls > 0 ? (
+                                <span className="text-amber-600 font-medium">{mr.totalCalls} planned</span>
+                              ) : (
+                                <span className="text-slate-400">0 visits</span>
+                              )}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Column 9: Today Activity */}
                         <td className="py-3 px-3 text-center">
                           <div className="text-xs font-semibold text-slate-800">
                             {mr.todayHoursFormatted !== '0m' ? (
-                              <span className="text-emerald-700 font-bold">{mr.todayHoursFormatted}</span>
+                              <span className="text-indigo-700 font-bold">{mr.todayHoursFormatted}</span>
                             ) : (
                               <span className="text-slate-400">0m today</span>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-400">
-                            {mr.todayLogins} logins • {mr.todayVisitsCompleted} calls
+                          <div className="text-[10px] text-slate-500 mt-0.5 flex items-center justify-center gap-1.5 flex-wrap">
+                            <span>{mr.todayLogins} logins</span>
+                            <span>•</span>
+                            <span className={mr.todayVisitsCompleted > 0 ? 'text-emerald-700 font-bold' : 'text-slate-400'}>
+                              {mr.todayVisitsCompleted} calls
+                            </span>
                           </div>
                         </td>
 
@@ -643,7 +697,7 @@ export default function MRActivityReportPage() {
               ) : (
                 <>
                   {/* Individual Metrics Ribbon */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
                     <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
                       <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                         Total App Hours
@@ -653,6 +707,19 @@ export default function MRActivityReportPage() {
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         {individualData?.metrics?.totalMinutes || 0} minutes logged
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                        Field Calls Done
+                      </div>
+                      <div className="text-xl font-bold text-emerald-700 flex items-center gap-1.5">
+                        <PhoneCall className="w-4 h-4 text-emerald-600" />
+                        {individualData?.metrics?.totalCallsCompleted || 0}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                        {individualData?.metrics?.doctorCalls || 0} Dr • {individualData?.metrics?.chemistCalls || 0} Chem
                       </div>
                     </div>
 
@@ -721,6 +788,21 @@ export default function MRActivityReportPage() {
                     >
                       <CalendarDays className="w-4 h-4" />
                       <span>Day-by-Day Usage Breakdown</span>
+                    </button>
+
+                    <button
+                      onClick={() => setIndividualTab('calls')}
+                      className={`pb-3 text-xs sm:text-sm font-semibold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                        individualTab === 'calls'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <ClipboardList className="w-4 h-4" />
+                      <span>Field Calls & Detailing Log</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-bold">
+                        {individualData?.visitsList?.length || 0}
+                      </span>
                     </button>
 
                     <button
@@ -843,7 +925,16 @@ export default function MRActivityReportPage() {
 
                                     <td className="py-2.5 px-3 text-center font-medium text-slate-700">
                                       {day.visitsCompleted > 0 ? (
-                                        <span className="font-bold text-emerald-700">{day.visitsCompleted} calls</span>
+                                        <div className="inline-flex flex-col items-center">
+                                          <span className="font-bold text-emerald-700">
+                                            {day.visitsCompleted} calls
+                                          </span>
+                                          <span className="text-[10px] text-slate-400 font-medium">
+                                            {day.doctorCalls || 0} Dr • {day.chemistCalls || 0} Chem
+                                          </span>
+                                        </div>
+                                      ) : day.visitsPlanned > 0 ? (
+                                        <span className="text-amber-600 text-[11px] font-medium">{day.visitsPlanned} planned</span>
                                       ) : (
                                         <span className="text-slate-300">0</span>
                                       )}
@@ -974,6 +1065,131 @@ export default function MRActivityReportPage() {
                                     {/* IP */}
                                     <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
                                       {sess.ipAddress}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── TAB 3: FIELD CALLS & DETAILING LOG ── */}
+                  {individualTab === 'calls' && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+                      <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700">
+                          Field Calls & Detailing Log ({individualData?.visitsList?.length || 0} Visits in Selected Period)
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {individualData?.metrics?.doctorCalls || 0} Doctor Detailing Calls • {individualData?.metrics?.chemistCalls || 0} Chemist Calls
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase border-b border-slate-200">
+                              <th className="py-2.5 px-4">Date & Time</th>
+                              <th className="py-2.5 px-3">Target Entity</th>
+                              <th className="py-2.5 px-3 text-center">Call Type</th>
+                              <th className="py-2.5 px-3 text-center">Duration</th>
+                              <th className="py-2.5 px-3 text-center">Status</th>
+                              <th className="py-2.5 px-4">Detailing Purpose & Products</th>
+                              <th className="py-2.5 px-4">Feedback / Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {!individualData?.visitsList || individualData.visitsList.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="py-12 text-center text-slate-400">
+                                  <PhoneCall className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                                  No field calls recorded in this time period.
+                                </td>
+                              </tr>
+                            ) : (
+                              individualData.visitsList.map((visit: any) => {
+                                const isCompleted = ['COMPLETED', 'REPORTED', 'CHECKED_OUT'].includes(visit.status);
+                                const isDoctor = visit.visitType === 'DOCTOR';
+
+                                return (
+                                  <tr key={visit.id} className="hover:bg-slate-50/70 transition-colors">
+                                    {/* Date & Time */}
+                                    <td className="py-2.5 px-4">
+                                      <div className="font-semibold text-slate-900">{visit.displayDate}</div>
+                                      <div className="text-[11px] text-slate-400 font-mono">
+                                        {visit.checkInTime !== '-' ? `${visit.checkInTime} - ${visit.checkOutTime}` : 'Planned'}
+                                      </div>
+                                    </td>
+
+                                    {/* Target Entity */}
+                                    <td className="py-2.5 px-3">
+                                      <div className="font-semibold text-slate-900">{visit.targetName}</div>
+                                      <div className="text-[11px] text-slate-500">{visit.targetSubtitle}</div>
+                                    </td>
+
+                                    {/* Call Type */}
+                                    <td className="py-2.5 px-3 text-center">
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                          isDoctor
+                                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        }`}
+                                      >
+                                        {isDoctor ? 'DOCTOR' : 'CHEMIST / TRADE'}
+                                      </span>
+                                    </td>
+
+                                    {/* Duration */}
+                                    <td className="py-2.5 px-3 text-center font-mono">
+                                      {visit.durationFormatted !== '0m' ? (
+                                        <span className="px-2 py-0.5 rounded-md font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                          {visit.durationFormatted}
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-300">-</span>
+                                      )}
+                                    </td>
+
+                                    {/* Status */}
+                                    <td className="py-2.5 px-3 text-center">
+                                      <span
+                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                          isCompleted
+                                            ? 'bg-emerald-100 text-emerald-800'
+                                            : visit.status === 'MISSED'
+                                            ? 'bg-rose-100 text-rose-800'
+                                            : 'bg-amber-100 text-amber-800'
+                                        }`}
+                                      >
+                                        {visit.status}
+                                      </span>
+                                    </td>
+
+                                    {/* Products & Purpose */}
+                                    <td className="py-2.5 px-4 max-w-xs">
+                                      <div className="font-medium text-slate-800 truncate" title={visit.purpose}>
+                                        {visit.purpose}
+                                      </div>
+                                      {visit.productsPromoted && visit.productsPromoted.length > 0 && (
+                                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                          {visit.productsPromoted.map((p: string, idx: number) => (
+                                            <span
+                                              key={idx}
+                                              className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100 text-slate-600 font-medium"
+                                            >
+                                              {p}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </td>
+
+                                    {/* Feedback */}
+                                    <td className="py-2.5 px-4 text-slate-600 text-[11px] max-w-xs">
+                                      {visit.feedback || <span className="text-slate-300 italic">No remarks recorded</span>}
                                     </td>
                                   </tr>
                                 );
