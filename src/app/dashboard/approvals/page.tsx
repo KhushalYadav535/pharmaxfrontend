@@ -75,11 +75,11 @@ export default function ApprovalsPage() {
 
   const { data: pendingOrdersData, isLoading: oLoading } = useQuery({
     queryKey: ['pending-orders'],
-    queryFn: () => api.get('/orders', { params: { status: 'PENDING', limit: 50 } }).then((r) => r.data.data),
+    queryFn: () => api.get('/approvals/pending-orders').then((r) => r.data.data),
     enabled: activeTab === 'orders',
   });
 
-  const pendingOrders = pendingOrdersData?.orders || [];
+  const pendingOrders = Array.isArray(pendingOrdersData) ? pendingOrdersData : (pendingOrdersData?.orders || []);
 
   const { data: pendingEntities, isLoading: entLoading } = useQuery({
     queryKey: ['pending-entities'],
@@ -144,10 +144,15 @@ export default function ApprovalsPage() {
     onSuccess: invalidateAll,
   });
 
-  // Orders: uses PATCH /orders/:id/status
-  const updateOrderStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/orders/${id}/status`, { status }),
+  // Orders: uses PATCH /approvals/orders/:id/approve and /approvals/orders/:id/reject
+  const approveOrderMutation = useMutation({
+    mutationFn: (id: string) => api.patch(`/approvals/orders/${id}/approve`),
+    onSuccess: invalidateAll,
+  });
+
+  const rejectOrderMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      api.patch(`/approvals/orders/${id}/reject`, { reason }),
     onSuccess: invalidateAll,
   });
 
@@ -162,7 +167,7 @@ export default function ApprovalsPage() {
   const handleConfirmReject = () => {
     if (!rejectingItem) return;
     const { id, type } = rejectingItem;
-    const reason = rejectionReason.trim() || 'Rejected by administrator';
+    const reason = rejectionReason.trim() || 'Rejected by manager';
 
     if (type === 'expenses') {
       rejectExpenseMutation.mutate({ id, reason });
@@ -173,7 +178,7 @@ export default function ApprovalsPage() {
     } else if (type === 'leaves') {
       rejectLeaveMutation.mutate({ id, reason });
     } else if (type === 'orders') {
-      updateOrderStatusMutation.mutate({ id, status: 'CANCELLED' });
+      rejectOrderMutation.mutate({ id, reason });
     }
 
     setRejectingItem(null);
@@ -645,17 +650,22 @@ export default function ApprovalsPage() {
 
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 mt-1">
                           <span>
-                            Chemist / Retailer:{' '}
+                            Chemist / Customer:{' '}
                             <strong className="text-slate-900 font-bold">
-                              {o.retailer?.name || o.distributor?.name || 'Walk-in Retailer'}
+                              {o.retailer?.name || o.distributor?.name || (o.visit?.doctor ? `Dr. ${o.visit.doctor.firstName} ${o.visit.doctor.lastName}` : 'Walk-in Retailer')}
                             </strong>
                           </span>
                           <span>
                             Booked By:{' '}
                             <strong className="text-slate-900">
-                              {o.user?.firstName} {o.user?.lastName}
+                              {o.user?.firstName} {o.user?.lastName} ({o.user?.role || 'MR'})
                             </strong>
                           </span>
+                          {o.user?.manager && (
+                            <span className="text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md font-medium border border-emerald-200">
+                              Reporting Manager: <strong>{o.user.manager.firstName} {o.user.manager.lastName} ({o.user.manager.role})</strong>
+                            </span>
+                          )}
                           <span>Date: {formatDate(o.orderDate)}</span>
                         </div>
 
@@ -704,27 +714,33 @@ export default function ApprovalsPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 self-end sm:self-center">
-                        <button
-                          onClick={() =>
-                            setRejectingItem({
-                              id: o.id,
-                              type: 'orders',
-                              title: `Order ${o.orderNumber || o.id.slice(0, 8)} (${formatCurrency(o.totalAmount)})`,
-                            })
-                          }
-                          className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl transition-colors border border-rose-200"
-                        >
-                          <XCircle className="w-4 h-4" /> Cancel Order
-                        </button>
-                        <button
-                          onClick={() => updateOrderStatusMutation.mutate({ id: o.id, status: 'APPROVED' })}
-                          disabled={updateOrderStatusMutation.isPending}
-                          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-sm disabled:opacity-50"
-                        >
-                          <CheckCircle className="w-4 h-4" /> Approve Order
-                        </button>
-                      </div>
+                      {['ASM', 'RSM', 'ZM', 'NSM'].includes(user?.role || '') ? (
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <button
+                            onClick={() =>
+                              setRejectingItem({
+                                id: o.id,
+                                type: 'orders',
+                                title: `Order ${o.orderNumber || o.id.slice(0, 8)} (${formatCurrency(o.totalAmount)})`,
+                              })
+                            }
+                            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl transition-colors border border-rose-200"
+                          >
+                            <XCircle className="w-4 h-4" /> Reject Order
+                          </button>
+                          <button
+                            onClick={() => approveOrderMutation.mutate(o.id)}
+                            disabled={approveOrderMutation.isPending}
+                            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-sm disabled:opacity-50"
+                          >
+                            <CheckCircle className="w-4 h-4" /> Approve Order (as Manager)
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="self-end sm:self-center bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-500">
+                          Requires ASM / RSM / ZM / NSM Action
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

@@ -55,6 +55,8 @@ function DoctorsPageContent() {
   const [specialty, setSpecialty] = useState('');
   const [category, setCategory] = useState('');
   const [hqId, setHqId] = useState(initialHqId);
+  const [areaId, setAreaId] = useState('');
+  const [interiorId, setInteriorId] = useState('');
   const [approvalStatus, setApprovalStatus] = useState<'ALL' | 'APPROVED' | 'PENDING' | 'REJECTED'>('ALL');
   const [classification, setClassification] = useState('');
   const [page, setPage] = useState(1);
@@ -135,6 +137,8 @@ function DoctorsPageContent() {
         qualification: 'MD MBBS',
         classification: 'A',
         category: 'CORE',
+        cityArea: 'Central Nagpur',
+        interior: 'Umred Road',
         city: 'Nagpur',
         state: 'Maharashtra',
         phone: '9876543210',
@@ -374,9 +378,22 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
   });
   const categoriesList = Array.isArray(catData) ? catData : [];
 
+  // Fetch Areas and Interiors for filters
+  const { data: areaData } = useQuery({
+    queryKey: ['areas-filter-list', hqId],
+    queryFn: () => api.get('/areas', { params: { hqId: hqId || undefined, limit: 300 } }).then((r) => r.data.data),
+  });
+  const areasList = Array.isArray(areaData) ? areaData : areaData?.areas || [];
+
+  const { data: interiorData } = useQuery({
+    queryKey: ['interiors-filter-list', hqId],
+    queryFn: () => api.get('/interiors', { params: { hqId: hqId || undefined, limit: 300 } }).then((r) => r.data.data),
+  });
+  const interiorsList = Array.isArray(interiorData) ? interiorData : interiorData?.interiors || [];
+
   // Fetch Doctors with rich filters
   const { data, isLoading } = useQuery({
-    queryKey: ['doctors', { search, specialty, category, hqId, approvalStatus, classification, page }],
+    queryKey: ['doctors', { search, specialty, category, hqId, areaId, interiorId, approvalStatus, classification, page }],
     queryFn: () =>
       api
         .get('/doctors', {
@@ -385,6 +402,8 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
             specialty: specialty || undefined,
             category: category || undefined,
             hqId: hqId || undefined,
+            areaId: areaId || undefined,
+            interiorId: interiorId || undefined,
             approvalStatus: approvalStatus || undefined,
             classification: classification || undefined,
             page,
@@ -446,7 +465,7 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
     document.body.removeChild(link);
   };
 
-  const hasActiveFilters = search || specialty || category || hqId || classification || approvalStatus !== 'ALL';
+  const hasActiveFilters = search || specialty || category || hqId || areaId || interiorId || classification || approvalStatus !== 'ALL';
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
@@ -628,13 +647,45 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
           <div>
             <select
               value={hqId}
-              onChange={(e) => { setHqId(e.target.value); setPage(1); }}
+              onChange={(e) => { setHqId(e.target.value); setAreaId(''); setInteriorId(''); setPage(1); }}
               className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white text-slate-700"
             >
               <option value="">All Headquarters</option>
               {headquarters.map((hq: any) => (
                 <option key={hq.id} value={hq.id}>
                   {hq.name} {hq.code ? `(${hq.code})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* City Area Filter */}
+          <div>
+            <select
+              value={areaId}
+              onChange={(e) => { setAreaId(e.target.value); setPage(1); }}
+              className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white text-slate-700"
+            >
+              <option value="">All City Areas</option>
+              {areasList.map((a: any) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Interior Filter */}
+          <div>
+            <select
+              value={interiorId}
+              onChange={(e) => { setInteriorId(e.target.value); setPage(1); }}
+              className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white text-slate-700"
+            >
+              <option value="">All Interiors</option>
+              {interiorsList.map((item: any) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
                 </option>
               ))}
             </select>
@@ -683,6 +734,8 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
                 setSpecialty('');
                 setCategory('');
                 setHqId('');
+                setAreaId('');
+                setInteriorId('');
                 setApprovalStatus('ALL');
                 setClassification('');
                 setPage(1);
@@ -810,14 +863,28 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
                         </span>
                       </td>
 
-                      {/* Headquarter & City */}
+                      {/* Headquarter & Territory Mapping */}
                       <td className="px-4 py-3.5">
                         <p className="text-xs font-bold text-slate-800">
                           {doc.hq?.name || doc.territory?.name || 'Unassigned HQ'}
                         </p>
-                        <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3" /> {doc.city || doc.area?.name || 'Nagpur'}
-                        </p>
+                        <div className="flex flex-col gap-0.5 mt-1 text-[11px]">
+                          {doc.area?.name ? (
+                            <span className="inline-flex items-center gap-1 text-slate-600">
+                              <span className="font-semibold text-slate-500">City Area:</span> {doc.area.name}
+                            </span>
+                          ) : null}
+                          {doc.interior?.name ? (
+                            <span className="inline-flex items-center gap-1 text-violet-700 font-medium">
+                              <span className="font-semibold text-violet-500">Interior:</span> {doc.interior.name}
+                            </span>
+                          ) : null}
+                          {!doc.area?.name && !doc.interior?.name ? (
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" /> {doc.city || 'Nagpur'}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
 
                       {/* Class & Rx Potential */}

@@ -188,18 +188,18 @@ function InteriorsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                {['Code', 'Name', 'Location', 'District', 'State', 'Pin', 'Status', 'Actions'].map(h => (
+                {['Code', 'Name', 'Location', 'HQ', 'District', 'State', 'Pin', 'Status', 'Actions'].map(h => (
                   <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
-                <tr><td colSpan={8} className="px-5 py-16 text-center text-gray-500">
+                <tr><td colSpan={9} className="px-5 py-16 text-center text-gray-500">
                   <Loader2 className="w-5 h-5 animate-spin mx-auto text-violet-500 mb-2" />Loading...
                 </td></tr>
               ) : data?.interiors?.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-16 text-center text-gray-400">
+                <tr><td colSpan={9} className="px-5 py-16 text-center text-gray-400">
                   <Navigation className="w-8 h-8 mx-auto mb-2 text-gray-300" />No interiors found.
                 </td></tr>
               ) : data?.interiors?.map((item: any) => (
@@ -207,6 +207,7 @@ function InteriorsTab() {
                   <td className="px-5 py-3.5 font-mono text-xs text-gray-500">{item.interiorCode ?? '—'}</td>
                   <td className="px-5 py-3.5 font-semibold text-gray-900">{item.name}</td>
                   <td className="px-5 py-3.5 text-gray-600">{item.location?.name || '—'}</td>
+                  <td className="px-5 py-3.5 text-gray-600">{item.hq?.name || '—'}</td>
                   <td className="px-5 py-3.5 text-gray-600">{item.district || '—'}</td>
                   <td className="px-5 py-3.5 text-gray-600">{item.state || '—'}</td>
                   <td className="px-5 py-3.5 text-gray-600">{item.pinCode || '—'}</td>

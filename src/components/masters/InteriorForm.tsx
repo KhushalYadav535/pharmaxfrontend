@@ -20,10 +20,11 @@ export default function InteriorForm({ onClose, editData }: InteriorFormProps) {
     queryFn: () => api.get('/locations', { params: { limit: 200 } }).then(r => r.data.data.locations || []),
   });
 
-  const { data: hqList = [] } = useQuery({
+  const { data: rawHqList } = useQuery({
     queryKey: ['headquarters-list'],
-    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || []),
+    queryFn: () => api.get('/headquarters', { params: { limit: 300 } }).then(r => r.data?.data?.headquarters || r.data?.data || []),
   });
+  const hqList = Array.isArray(rawHqList) ? rawHqList : (Array.isArray(rawHqList?.headquarters) ? rawHqList.headquarters : []);
 
   const [name, setName] = useState(editData?.name ?? '');
   const [locationId, setLocationId] = useState(editData?.locationId ?? '');

@@ -29,7 +29,9 @@ export default function CloseDayPage() {
   const canClose: boolean = closeCheck?.canClose !== false;
 
   const closeMutation = useMutation({
-    mutationFn: () => api.post('/day/close'),
+    mutationFn: () => api.post('/day/close', {
+      bulkMissedReason: closeCheck?.pendingPlannedCount > 0 ? 'Day closed from management dashboard' : undefined,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['today-attendance'] });
       qc.invalidateQueries({ queryKey: ['day-status'] });

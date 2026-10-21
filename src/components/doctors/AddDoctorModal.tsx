@@ -71,8 +71,55 @@ export default function AddDoctorModal({
   });
   const headquarters = Array.isArray(hqData) ? hqData : hqData?.headquarters || [];
 
+  // Areas & Interiors queries
+  const { data: areaData } = useQuery({
+    queryKey: ['areas-list'],
+    queryFn: () => api.get('/areas', { params: { limit: 200 } }).then((r) => r.data.data),
+  });
+  const areas = Array.isArray(areaData) ? areaData : areaData?.areas || [];
+
+  const { data: interiorData } = useQuery({
+    queryKey: ['interiors-list'],
+    queryFn: () => api.get('/interiors', { params: { limit: 200 } }).then((r) => r.data.data),
+  });
+  const interiors = Array.isArray(interiorData) ? interiorData : interiorData?.interiors || [];
+
   // Form State
   const [selectedHqId, setSelectedHqId] = useState(defaultHqId);
+  const [selectedAreaId, setSelectedAreaId] = useState('');
+  const [selectedInteriorId, setSelectedInteriorId] = useState('');
+
+  // Filtered areas and interiors based on selected HQ
+  const filteredAreas = React.useMemo(() => {
+    if (!selectedHqId) return areas;
+    const matches = areas.filter((a: any) => a.hqId === selectedHqId || a.headquarterId === selectedHqId || a.location?.hqId === selectedHqId);
+    if (selectedAreaId && !matches.some((a: any) => a.id === selectedAreaId)) {
+      const current = areas.find((a: any) => a.id === selectedAreaId);
+      if (current) return [current, ...matches];
+    }
+    return matches;
+  }, [areas, selectedHqId, selectedAreaId]);
+
+  const filteredInteriors = React.useMemo(() => {
+    let list = interiors;
+    if (selectedHqId) {
+      const hqMatches = interiors.filter((i: any) => i.hqId === selectedHqId || i.location?.hqId === selectedHqId);
+      if (hqMatches.length > 0) list = hqMatches;
+    }
+    if (selectedAreaId) {
+      const selectedArea = areas.find((a: any) => a.id === selectedAreaId);
+      if (selectedArea?.locationId) {
+        const locMatches = list.filter((i: any) => i.locationId === selectedArea.locationId);
+        if (locMatches.length > 0) list = locMatches;
+      }
+    }
+    if (selectedInteriorId && !list.some((i: any) => i.id === selectedInteriorId)) {
+      const current = interiors.find((i: any) => i.id === selectedInteriorId);
+      if (current) return [current, ...list];
+    }
+    return list;
+  }, [interiors, areas, selectedHqId, selectedAreaId, selectedInteriorId]);
+
   const [salutation, setSalutation] = useState('Dr.');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -103,12 +150,19 @@ export default function AddDoctorModal({
     }
   }, [defaultHqId, headquarters]);
 
-  // When HQ changes, auto-fill city/state if empty
+  // When HQ changes, auto-fill city/state and clear mismatching area/interior
   const activeHq = headquarters.find((h: any) => h.id === selectedHqId);
   useEffect(() => {
     if (activeHq) {
       if (!city && activeHq.district) setCity(activeHq.district);
       if (activeHq.state) setState(activeHq.state);
+    }
+    if (selectedAreaId) {
+      const currentArea = areas.find((a: any) => a.id === selectedAreaId);
+      if (currentArea && currentArea.hqId && currentArea.hqId !== selectedHqId) {
+        setSelectedAreaId('');
+        setSelectedInteriorId('');
+      }
     }
   }, [selectedHqId, activeHq]);
 
@@ -141,6 +195,8 @@ export default function AddDoctorModal({
     setPincode('');
     setIsKol(false);
     setKolCategory('');
+    setSelectedAreaId('');
+    setSelectedInteriorId('');
     setNotes('');
     setFormError('');
   };
@@ -183,6 +239,8 @@ export default function AddDoctorModal({
       email: email.trim() || undefined,
       hqId: selectedHqId,
       territoryId: selectedHqId,
+      areaId: selectedAreaId || undefined,
+      interiorId: selectedInteriorId || undefined,
       city: city.trim() || activeHq?.district || 'Nagpur',
       state: state || activeHq?.state || 'Maharashtra',
       address1: address1.trim() || undefined,
@@ -447,6 +505,48 @@ export default function AddDoctorModal({
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 4. Clinic / Practice Address
               </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-1">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  City Area
+                  {selectedHqId && <span className="text-[10px] text-emerald-600 font-normal lowercase ml-1">(filtered by HQ)</span>}
+                </label>
+                <select
+                  value={selectedAreaId}
+                  onChange={(e) => setSelectedAreaId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="">-- Select City Area --</option>
+                  {filteredAreas.map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                {selectedHqId && filteredAreas.length === 0 && (
+                  <p className="text-[10px] text-amber-600 mt-1 font-medium">No city areas linked to this HQ in Location Master</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Interior
+                  {selectedHqId && <span className="text-[10px] text-emerald-600 font-normal lowercase ml-1">(filtered by HQ)</span>}
+                </label>
+                <select
+                  value={selectedInteriorId}
+                  onChange={(e) => setSelectedInteriorId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="">-- Select Interior --</option>
+                  {filteredInteriors.map((intItem: any) => (
+                    <option key={intItem.id} value={intItem.id}>{intItem.name}</option>
+                  ))}
+                </select>
+                {selectedHqId && filteredInteriors.length === 0 && (
+                  <p className="text-[10px] text-amber-600 mt-1 font-medium">No interiors linked to this HQ/Area in Location Master</p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

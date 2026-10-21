@@ -57,7 +57,7 @@ export default function OrdersPage() {
   };
 
   const orders = data?.orders ?? [];
-  const isAdminOrManager = ['SUPER_ADMIN', 'SALES_ADMIN', 'NSM', 'ZM', 'RSM', 'ASM'].includes(user?.role || '');
+  const isSalesManager = ['ASM', 'RSM', 'ZM', 'NSM'].includes(user?.role || '');
 
   const toggleRow = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
@@ -65,12 +65,22 @@ export default function OrdersPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'PENDING': return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700"><Clock className="w-3 h-3" /> Pending</span>;
-      case 'CONFIRMED': return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700"><CheckCircle className="w-3 h-3" /> Confirmed</span>;
-      case 'SHIPPED': return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700"><DeliveryTruck className="w-3 h-3" /> Shipped</span>;
-      case 'DELIVERED': return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700"><CheckCircle className="w-3 h-3" /> Delivered</span>;
-      case 'CANCELLED': return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700"><XCircle className="w-3 h-3" /> Cancelled</span>;
-      default: return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700">Draft</span>;
+      case 'PENDING':
+      case 'SUBMITTED':
+        return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700"><Clock className="w-3 h-3" /> Pending</span>;
+      case 'APPROVED':
+      case 'CONFIRMED':
+      case 'PROCESSING':
+        return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700"><CheckCircle className="w-3 h-3" /> Approved</span>;
+      case 'SHIPPED':
+      case 'DISPATCHED':
+        return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700"><DeliveryTruck className="w-3 h-3" /> Shipped</span>;
+      case 'DELIVERED':
+        return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700"><CheckCircle className="w-3 h-3" /> Delivered</span>;
+      case 'CANCELLED':
+        return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700"><XCircle className="w-3 h-3" /> Cancelled</span>;
+      default:
+        return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700">{status || 'Draft'}</span>;
     }
   };
 
@@ -87,10 +97,10 @@ export default function OrdersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <ShoppingCart className="w-6 h-6 text-blue-600" /> Order Management
+              <ShoppingCart className="w-6 h-6 text-blue-600" /> Field Orders & Commercial Approvals
             </h1>
             <p className="text-gray-500 text-sm mt-1">
-              Create and manage product orders from Retailers and Distributors.
+              Real-time sales orders booked by Medical Representatives (MRs) during field visits.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -98,7 +108,7 @@ export default function OrdersPage() {
               href="/dashboard/orders/new"
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-2xs"
             >
-              <Plus className="w-4 h-4" /> Book New Order
+              <Plus className="w-4 h-4" /> Manager Direct Order
             </Link>
           </div>
         </div>
@@ -113,9 +123,9 @@ export default function OrdersPage() {
               className="px-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50"
             >
               <option value="">All Statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="SHIPPED">Shipped</option>
+              <option value="SUBMITTED">Pending</option>
+              <option value="PROCESSING">Approved</option>
+              <option value="DISPATCHED">Shipped</option>
               <option value="DELIVERED">Delivered</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
@@ -162,11 +172,20 @@ export default function OrdersPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1.5 mb-1">
-                            {o.retailerId ? <Store className="w-3.5 h-3.5 text-blue-600" /> : <Truck className="w-3.5 h-3.5 text-indigo-600" />}
+                            {o.retailerId ? (
+                              <Store className="w-3.5 h-3.5 text-purple-600" />
+                            ) : o.distributorId ? (
+                              <Truck className="w-3.5 h-3.5 text-amber-600" />
+                            ) : (
+                              <Package className="w-3.5 h-3.5 text-blue-600" />
+                            )}
                             <span className="font-bold text-gray-900 text-xs">
-                              {o.retailerId ? o.retailer?.name : o.distributor?.name}
+                              {o.retailer?.name || o.distributor?.name || (o.visit?.doctor ? `Dr. ${o.visit.doctor.firstName} ${o.visit.doctor.lastName}` : (o.visit?.retailer?.name || 'Field Customer'))}
                             </span>
                           </div>
+                          <p className="text-[10px] text-gray-400">
+                            {o.retailer?.city || o.distributor?.city || o.visit?.doctor?.specialty || (o.retailerId ? 'Retail Chemist' : (o.distributorId ? 'Stockist' : 'Field POB'))}
+                          </p>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1.5 text-gray-700 font-medium text-xs">
@@ -191,18 +210,22 @@ export default function OrdersPage() {
                               Invoice
                             </Link>
 
-                            {/* Status Change for Admins/Managers */}
-                            {isAdminOrManager ? (
+                            {/* Status Change for Field Managers (ASM, RSM, ZM, NSM) */}
+                            {isSalesManager ? (
                               <select
-                                value={o.status}
+                                value={
+                                  o.status === 'PROCESSING' || o.status === 'CONFIRMED' || o.status === 'APPROVED' ? 'PROCESSING' :
+                                  o.status === 'DISPATCHED' || o.status === 'SHIPPED' ? 'DISPATCHED' :
+                                  o.status === 'SUBMITTED' || o.status === 'PENDING' ? 'SUBMITTED' :
+                                  o.status
+                                }
                                 onChange={(e) => handleStatusUpdate(o, e.target.value)}
                                 disabled={processing?.startsWith(o.id)}
                                 className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-2 py-1 rounded-lg border border-slate-200 cursor-pointer focus:outline-none"
                               >
-                                <option value="PENDING">PENDING</option>
-                                <option value="APPROVED">APPROVED</option>
-                                <option value="CONFIRMED">CONFIRMED</option>
-                                <option value="SHIPPED">SHIPPED</option>
+                                <option value="SUBMITTED">PENDING</option>
+                                <option value="PROCESSING">APPROVED</option>
+                                <option value="DISPATCHED">SHIPPED</option>
                                 <option value="DELIVERED">DELIVERED</option>
                                 <option value="CANCELLED">CANCELLED</option>
                               </select>

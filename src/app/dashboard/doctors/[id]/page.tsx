@@ -307,8 +307,13 @@ export default function DoctorDetailPage() {
           </div>
 
           <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Area</span>
-            <span className="font-bold text-slate-900 text-sm">{data.area?.name || data.city || 'Central Area'}</span>
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned City Area</span>
+            <span className="font-bold text-slate-900 text-sm">{data.area?.name || data.city || '—'}</span>
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Interior</span>
+            <span className="font-bold text-slate-900 text-sm">{data.interior?.name || '—'}</span>
           </div>
 
           <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">

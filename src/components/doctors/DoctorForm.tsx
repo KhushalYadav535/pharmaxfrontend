@@ -32,31 +32,61 @@ export default function DoctorForm({
   const searchParams = useSearchParams();
   const defaultHqParam = searchParams?.get('hqId') || '';
 
+  // Safe array normalizer helper
+  const toSafeArray = (val: any, nestedKey?: string): any[] => {
+    if (Array.isArray(val)) return val;
+    if (nestedKey && Array.isArray(val?.[nestedKey])) return val[nestedKey];
+    if (Array.isArray(val?.headquarters)) return val.headquarters;
+    if (Array.isArray(val?.areas)) return val.areas;
+    if (Array.isArray(val?.interiors)) return val.interiors;
+    if (Array.isArray(val?.hospitals)) return val.hospitals;
+    if (Array.isArray(val?.retailers)) return val.retailers;
+    if (Array.isArray(val?.products)) return val.products;
+    return [];
+  };
+
   // Queries
-  const { data: areaList = [] } = useQuery({
+  const { data: rawAreaList } = useQuery({
     queryKey: ['areas'],
-    queryFn: () => api.get('/areas', { params: { limit: 100 } }).then(r => r.data.data.areas || [])
+    queryFn: () => api.get('/areas', { params: { limit: 300 } }).then(r => r.data?.data?.areas || r.data?.data || [])
   });
-  const { data: territoryList = [] } = useQuery({
+  const areaList = toSafeArray(rawAreaList, 'areas');
+
+  const { data: rawInteriorList } = useQuery({
+    queryKey: ['interiors'],
+    queryFn: () => api.get('/interiors', { params: { limit: 300 } }).then(r => r.data?.data?.interiors || r.data?.data || [])
+  });
+  const interiorList = toSafeArray(rawInteriorList, 'interiors');
+
+  const { data: rawTerritoryList } = useQuery({
     queryKey: ['territories'],
-    queryFn: () => api.get('/headquarters', { params: { limit: 100 } }).then(r => r.data.data.headquarters || [])
+    queryFn: () => api.get('/headquarters', { params: { limit: 300 } }).then(r => r.data?.data?.headquarters || r.data?.data || [])
   });
-  const { data: hospitalList = [] } = useQuery({
+  const territoryList = toSafeArray(rawTerritoryList, 'headquarters');
+
+  const { data: rawHospitalList } = useQuery({
     queryKey: ['hospitals'],
-    queryFn: () => api.get('/hospitals', { params: { limit: 100 } }).then(r => r.data.data.hospitals || [])
+    queryFn: () => api.get('/hospitals', { params: { limit: 200 } }).then(r => r.data?.data?.hospitals || r.data?.data || [])
   });
-  const { data: productList = [] } = useQuery({
+  const hospitalList = toSafeArray(rawHospitalList, 'hospitals');
+
+  const { data: rawProductList } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.get('/products', { params: { limit: 200 } }).then(r => r.data.data.products || [])
+    queryFn: () => api.get('/products', { params: { limit: 300 } }).then(r => r.data?.data?.products || r.data?.data || [])
   });
-  const { data: retailerList = [] } = useQuery({
+  const productList = toSafeArray(rawProductList, 'products');
+
+  const { data: rawRetailerList } = useQuery({
     queryKey: ['retailers'],
-    queryFn: () => api.get('/retailers', { params: { limit: 200 } }).then(r => r.data.data.retailers || [])
+    queryFn: () => api.get('/retailers', { params: { limit: 300 } }).then(r => r.data?.data?.retailers || r.data?.data || [])
   });
-  const { data: hqList = [] } = useQuery({
+  const retailerList = toSafeArray(rawRetailerList, 'retailers');
+
+  const { data: rawHqList } = useQuery({
     queryKey: ['headquarters-list'],
-    queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || [])
+    queryFn: () => api.get('/headquarters', { params: { limit: 300 } }).then(r => r.data?.data?.headquarters || r.data?.data || [])
   });
+  const hqList = toSafeArray(rawHqList, 'headquarters');
 
   // FFMS Fields
   const [salutation, setSalutation]           = useState(initialData?.salutation || 'Dr.');
@@ -85,6 +115,7 @@ export default function DoctorForm({
   const [pincode, setPincode]                 = useState(initialData?.pincode || '');
   const [geoTag, setGeoTag]                   = useState(initialData?.geoTag || '');
   const [areaId, setAreaId]                   = useState(initialData?.areaId || '');
+  const [interiorId, setInteriorId]           = useState(initialData?.interiorId || '');
   const [territoryId, setTerritoryId]         = useState(initialData?.territoryId || '');
   const [hqId, setHqId]                       = useState(initialData?.hqId || defaultHqParam);
   const [hospitalId, setHospitalId]           = useState(initialData?.hospitalId || '');
@@ -95,6 +126,86 @@ export default function DoctorForm({
       setHqId(defaultHqParam);
     }
   }, [defaultHqParam]);
+
+  useEffect(() => {
+    if (initialData) {
+      if (initialData.salutation) setSalutation(initialData.salutation);
+      if (initialData.firstName) setFirstName(initialData.firstName);
+      if (initialData.middleName) setMiddleName(initialData.middleName);
+      if (initialData.lastName) setLastName(initialData.lastName);
+      if (initialData.specialty) setSpecialty(initialData.specialty);
+      if (initialData.subSpecialty) setSubSpecialty(initialData.subSpecialty);
+      if (initialData.qualification) setQualification(initialData.qualification);
+      if (initialData.classification) setClassification(initialData.classification);
+      if (initialData.category) setCategory(initialData.category);
+      if (initialData.prescriber !== undefined) setPrescriber(initialData.prescriber);
+      if (initialData.prescriptionPotential !== undefined) setPrescriptionPotential(String(initialData.prescriptionPotential));
+      if (initialData.gender) setGender(initialData.gender);
+      if (initialData.maritalStatus) setMaritalStatus(initialData.maritalStatus);
+      if (initialData.phone) setPhone(initialData.phone);
+      if (initialData.whatsappNumber) setWhatsappNumber(initialData.whatsappNumber);
+      if (initialData.email) setEmail(initialData.email);
+      if (initialData.dateOfBirth) setDateOfBirth(String(initialData.dateOfBirth).slice(0, 10));
+      if (initialData.marriageAnniversary) setMarriageAnniversary(String(initialData.marriageAnniversary).slice(0, 10));
+      if (initialData.address1) setAddress1(initialData.address1);
+      if (initialData.address2) setAddress2(initialData.address2);
+      if (initialData.city) setCity(initialData.city);
+      if (initialData.district) setDistrict(initialData.district);
+      if (initialData.state) setState(initialData.state);
+      if (initialData.pincode) setPincode(initialData.pincode);
+      if (initialData.geoTag) setGeoTag(initialData.geoTag);
+      if (initialData.areaId) setAreaId(initialData.areaId);
+      if (initialData.interiorId) setInteriorId(initialData.interiorId);
+      if (initialData.territoryId) setTerritoryId(initialData.territoryId);
+      if (initialData.hqId) setHqId(initialData.hqId);
+      if (initialData.hospitalId) setHospitalId(initialData.hospitalId);
+      if (initialData.retailerId) setRetailerId(initialData.retailerId);
+      if (initialData.productsSelected || initialData.products) {
+        const pids = (initialData.productsSelected || initialData.products || []).map((p: any) => p.productId || p.id);
+        setProductIds(pids);
+      }
+      if (initialData.website) setWebsite(initialData.website);
+      if (initialData.facebook) setFacebook(initialData.facebook);
+      if (initialData.instagram) setInstagram(initialData.instagram);
+      if (initialData.twitter) setTwitter(initialData.twitter);
+      if (initialData.visitDays) setVisitDays(initialData.visitDays);
+      if (initialData.isKol !== undefined) setIsKol(initialData.isKol);
+      if (initialData.kolCategory) setKolCategory(initialData.kolCategory);
+      if (initialData.visitFrequency !== undefined) setVisitFrequency(String(initialData.visitFrequency));
+      if (initialData.notes) setNotes(initialData.notes);
+    }
+  }, [initialData]);
+
+  const filteredAreas = React.useMemo(() => {
+    if (!hqId) return areaList;
+    const matches = areaList.filter((a: any) => a.hqId === hqId || a.headquarterId === hqId || a.location?.hqId === hqId);
+    if (areaId && !matches.some((a: any) => a.id === areaId)) {
+      const current = areaList.find((a: any) => a.id === areaId);
+      if (current) return [current, ...matches];
+    }
+    return matches;
+  }, [areaList, hqId, areaId]);
+
+  const filteredInteriors = React.useMemo(() => {
+    let list = interiorList;
+    if (hqId) {
+      const hqMatches = interiorList.filter((i: any) => i.hqId === hqId || i.location?.hqId === hqId);
+      if (hqMatches.length > 0) list = hqMatches;
+    }
+    if (areaId) {
+      const selectedArea = areaList.find((a: any) => a.id === areaId);
+      if (selectedArea?.locationId) {
+        const locMatches = list.filter((i: any) => i.locationId === selectedArea.locationId);
+        if (locMatches.length > 0) list = locMatches;
+      }
+    }
+    if (interiorId && !list.some((i: any) => i.id === interiorId)) {
+      const current = interiorList.find((i: any) => i.id === interiorId);
+      if (current) return [current, ...list];
+    }
+    return list;
+  }, [interiorList, areaList, hqId, areaId, interiorId]);
+
   const [productIds, setProductIds]           = useState<string[]>(initialData?.products?.map((p: any) => p.id || p.productId) || []);
   const [website, setWebsite]                 = useState(initialData?.website || '');
   const [facebook, setFacebook]               = useState(initialData?.facebook || '');
@@ -121,7 +232,7 @@ export default function DoctorForm({
     if (!specialty)        { setError('Specialty is required'); return; }
     try {
       setIsSubmitting(true); setError('');
-      const payload = {
+      const payload: any = {
         salutation: salutation || undefined,
         firstName, middleName: middleName || undefined, lastName, specialty,
         subSpecialty: subSpecialty || undefined,
@@ -129,36 +240,37 @@ export default function DoctorForm({
         classification: classification || undefined,
         category: category || undefined,
         prescriber,
-        prescriptionPotential: prescriptionPotential ? Number(prescriptionPotential) : undefined,
-        gender: gender || undefined,
-        maritalStatus: maritalStatus || undefined,
-        phone: phone || undefined,
-        whatsappNumber: whatsappNumber || undefined,
-        email: email || undefined,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : undefined,
-        marriageAnniversary: marriageAnniversary ? new Date(marriageAnniversary).toISOString() : undefined,
-        address1: address1 || undefined,
-        address2: address2 || undefined,
-        city: city || undefined,
-        district: district || undefined,
-        state: state || undefined,
-        pincode: pincode || undefined,
-        geoTag: geoTag || undefined,
-        areaId: areaId || undefined,
-        territoryId: territoryId || undefined,
-        hqId: hqId || undefined,
-        hospitalId: hospitalId || undefined,
-        retailerId: retailerId || undefined,
-        productIds: productIds.length > 0 ? productIds : undefined,
-        website: website || undefined,
-        facebook: facebook || undefined,
-        instagram: instagram || undefined,
-        twitter: twitter || undefined,
-        visitDays: visitDays.length > 0 ? visitDays : undefined,
+        prescriptionPotential: prescriptionPotential ? Number(prescriptionPotential) : (doctorId ? null : undefined),
+        gender: gender || (doctorId ? null : undefined),
+        maritalStatus: maritalStatus || (doctorId ? null : undefined),
+        phone: phone || (doctorId ? null : undefined),
+        whatsappNumber: whatsappNumber || (doctorId ? null : undefined),
+        email: email || (doctorId ? null : undefined),
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : (doctorId ? null : undefined),
+        marriageAnniversary: marriageAnniversary ? new Date(marriageAnniversary).toISOString() : (doctorId ? null : undefined),
+        address1: address1 || (doctorId ? null : undefined),
+        address2: address2 || (doctorId ? null : undefined),
+        city: city || (doctorId ? null : undefined),
+        district: district || (doctorId ? null : undefined),
+        state: state || (doctorId ? null : undefined),
+        pincode: pincode || (doctorId ? null : undefined),
+        geoTag: geoTag || (doctorId ? null : undefined),
+        areaId: areaId || (doctorId ? null : undefined),
+        interiorId: interiorId || (doctorId ? null : undefined),
+        territoryId: territoryId || (doctorId ? null : undefined),
+        hqId: hqId || (doctorId ? null : undefined),
+        hospitalId: hospitalId || (doctorId ? null : undefined),
+        retailerId: retailerId || (doctorId ? null : undefined),
+        productIds: productIds.length > 0 ? productIds : (doctorId ? [] : undefined),
+        website: website || (doctorId ? null : undefined),
+        facebook: facebook || (doctorId ? null : undefined),
+        instagram: instagram || (doctorId ? null : undefined),
+        twitter: twitter || (doctorId ? null : undefined),
+        visitDays: visitDays.length > 0 ? visitDays : (doctorId ? [] : undefined),
         isKol,
-        kolCategory: isKol && kolCategory ? kolCategory : undefined,
+        kolCategory: isKol && kolCategory ? kolCategory : (doctorId ? null : undefined),
         visitFrequency: Number(visitFrequency) || 1,
-        notes: notes || undefined,
+        notes: notes || (doctorId ? null : undefined),
       };
 
       if (doctorId) {
@@ -194,8 +306,12 @@ export default function DoctorForm({
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="font-extrabold text-[20px] tracking-tight leading-tight drop-shadow-sm">Add Doctor</h1>
-          <p className="text-[12px] font-medium text-white/80 mt-1 uppercase tracking-wider">FFMS Doctor Master Entry</p>
+          <h1 className="font-extrabold text-[20px] tracking-tight leading-tight drop-shadow-sm">
+            {doctorId ? 'Edit Doctor Profile' : 'Add Doctor'}
+          </h1>
+          <p className="text-[12px] font-medium text-white/80 mt-1 uppercase tracking-wider">
+            {doctorId ? 'Modify Master, Territory, City Area & Interior Mapping' : 'FFMS Doctor Master Entry'}
+          </p>
         </div>
         <Stethoscope className="w-7 h-7 opacity-70" />
       </div>
@@ -514,14 +630,37 @@ export default function DoctorForm({
         </div>
 
         <div>
-          <label className={labelCls}>Area (FK)</label>
+          <label className={labelCls}>
+            City Area
+            {hqId && <span className="text-[10px] text-emerald-600 font-normal lowercase ml-1">(filtered by HQ)</span>}
+          </label>
           <div className="relative group">
             <select value={areaId} onChange={e => setAreaId(e.target.value)} className={selectCls} style={{ '--tw-ring-color': RING } as any}>
-              <option value="">Select Area...</option>
-              {areaList.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              <option value="">-- None / Select City Area --</option>
+              {filteredAreas.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
           </div>
+          {hqId && filteredAreas.length === 0 && (
+            <span className="text-[11px] text-amber-600 block mt-1">No city areas linked to this HQ in Location Master</span>
+          )}
+        </div>
+
+        <div>
+          <label className={labelCls}>
+            Interior
+            {hqId && <span className="text-[10px] text-emerald-600 font-normal lowercase ml-1">(filtered by HQ)</span>}
+          </label>
+          <div className="relative group">
+            <select value={interiorId} onChange={e => setInteriorId(e.target.value)} className={selectCls} style={{ '--tw-ring-color': RING } as any}>
+              <option value="">-- None / Select Interior --</option>
+              {filteredInteriors.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-[15px] pointer-events-none" />
+          </div>
+          {hqId && filteredInteriors.length === 0 && (
+            <span className="text-[11px] text-amber-600 block mt-1">No interiors linked to this HQ/Area in Location Master</span>
+          )}
         </div>
 
         <div>
@@ -619,7 +758,7 @@ export default function DoctorForm({
       <div className="px-6 pb-6 pt-6 border-t border-gray-100 flex justify-end">
         <button onClick={handleSubmit} disabled={isSubmitting}
           className="w-full md:w-auto px-10 bg-gradient-to-r from-blue-600 to-indigo-700 hover:to-indigo-600 text-white font-extrabold text-[15px] py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-60 disabled:transform-none disabled:shadow-none">
-          {isSubmitting ? 'SAVING...' : <><Send className="w-5 h-5" /> SAVE DOCTOR</>}
+          {isSubmitting ? 'SAVING...' : <><Send className="w-5 h-5" /> {doctorId ? 'UPDATE DOCTOR' : 'SAVE DOCTOR'}</>}
         </button>
       </div>
     </div>

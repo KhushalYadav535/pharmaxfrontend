@@ -284,3 +284,68 @@ body {
     animation: none !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   PHARMA TAX INVOICE PRINT ENGINE (A4 Vector PDF & High DPI Print)
+   ══════════════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 6mm 8mm 6mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    font-size: 10.5px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide UI elements, navigation, sidebars, floating widgets */
+  header, nav, aside, footer,
+  .no-print,
+  #awww-cursor-dot, #awww-cursor-ring,
+  button,
+  [role="dialog"]:not(.print-dialog) {
+    display: none !important;
+  }
+
+  /* Make sure main container expands cleanly without scrollbars */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Dedicated Invoice Print Sheet */
+  .pharma-invoice-sheet {
+    box-shadow: none !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 14px 18px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background-color: #ffffff !important;
+  }
+
+  .pharma-invoice-sheet * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .table-print-row {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+

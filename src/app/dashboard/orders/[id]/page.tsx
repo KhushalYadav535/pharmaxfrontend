@@ -11,8 +11,9 @@ import {
   ShoppingCart, ArrowLeft, Store, Truck, Calendar,
   CheckCircle, Clock, XCircle, Package, Receipt,
   UserCheck, MapPin, Phone, ShieldCheck, Printer,
-  FileText, Check, AlertCircle, ArrowRight
+  FileText, Check, AlertCircle, ArrowRight, Eye
 } from 'lucide-react';
+import PharmaTaxInvoice from '@/components/operations/PharmaTaxInvoice';
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ export default function OrderDetailsPage() {
   const qc = useQueryClient();
 
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'operations' | 'invoice'>('operations');
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order-detail', id],
@@ -75,17 +77,32 @@ export default function OrderDetailsPage() {
     );
   }
 
-  const customer = order.retailer || order.distributor;
-  const isRetailer = !!order.retailerId;
+  const customer = order.retailer || order.distributor || (order.visit?.doctor ? {
+    name: `Dr. ${order.visit.doctor.firstName} ${order.visit.doctor.lastName}`,
+    city: order.visit.doctor.city || 'Doctor Practice',
+    phone: order.visit.doctor.mobileNumber,
+    drugLicense: order.visit.doctor.specialty,
+  } : order.visit?.retailer);
+  const isRetailer = !!order.retailerId || (!order.distributorId && !order.visit?.doctor);
   const items = order.items || [];
+
+  const isPending = order?.status === 'PENDING' || order?.status === 'SUBMITTED' || order?.status === 'DRAFT';
+  const isApproved = order?.status === 'CONFIRMED' || order?.status === 'PROCESSING' || order?.status === 'APPROVED';
+  const isShipped = order?.status === 'SHIPPED' || order?.status === 'DISPATCHED';
+  const isDelivered = order?.status === 'DELIVERED';
+  const isCancelled = order?.status === 'CANCELLED';
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
+      case 'SUBMITTED':
         return <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200"><Clock className="w-3.5 h-3.5" /> Pending Confirmation</span>;
+      case 'APPROVED':
       case 'CONFIRMED':
+      case 'PROCESSING':
         return <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200"><CheckCircle className="w-3.5 h-3.5" /> Confirmed / Approved</span>;
       case 'SHIPPED':
+      case 'DISPATCHED':
         return <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200"><Truck className="w-3.5 h-3.5" /> Shipped / In Transit</span>;
       case 'DELIVERED':
         return <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200"><CheckCircle className="w-3.5 h-3.5" /> Delivered</span>;
@@ -99,7 +116,7 @@ export default function OrderDetailsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20">
       {/* ── TOP ACTION BAR ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
           onClick={() => router.back()}
           className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-3.5 py-2 rounded-xl transition-colors shadow-2xs w-fit"
@@ -107,15 +124,72 @@ export default function OrderDetailsPage() {
           <ArrowLeft className="w-4 h-4" /> Back to Order Management
         </button>
 
+        {/* View Switcher & Print Button */}
         <div className="flex items-center gap-2">
+          <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+            <button
+              onClick={() => setViewMode('operations')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'operations' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Order Operations
+            </button>
+            <button
+              onClick={() => setViewMode('invoice')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'invoice' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-600" />
+              Tax Invoice (A4 PDF)
+            </button>
+          </div>
+
           <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors shadow-2xs"
+            onClick={() => {
+              if (viewMode !== 'invoice') {
+                setViewMode('invoice');
+                setTimeout(() => window.print(), 250);
+              } else {
+                window.print();
+              }
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-2xs cursor-pointer"
           >
-            <Printer className="w-4 h-4 text-slate-500" /> Print Order Slip
+            <Printer className="w-4 h-4" /> Print Tax Invoice (PDF)
           </button>
         </div>
       </div>
+
+      {viewMode === 'invoice' ? (
+        <PharmaTaxInvoice order={order} onBack={() => setViewMode('operations')} />
+      ) : (
+        <>
+          {/* ── BANNER: OFFICIAL PHARMA TAX INVOICE READY ── */}
+          <div className="no-print bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-5 shadow-sm border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-900/60 border border-emerald-700 px-2 py-0.5 rounded-md">
+                  Statutory GST Compliance
+                </span>
+                <span className="text-xs text-slate-300">CGST Rule 46 & Drugs & Cosmetics Act</span>
+              </div>
+              <h2 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-400" /> Official Indian Pharma Tax Invoice Generated
+              </h2>
+              <p className="text-xs text-slate-300 max-w-xl">
+                Includes Drug License numbers (20B/21B), HSN 3004 tax breakdown, batch/expiry tracking, and bank remittance particulars. Ready for corporate distribution.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setViewMode('invoice')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-xl transition-all shadow-md flex-shrink-0 cursor-pointer"
+            >
+              <Eye className="w-4 h-4" /> View & Print Official Bill
+            </button>
+          </div>
 
       {/* ── ORDER INVOICE HEADER ── */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-6">
@@ -138,9 +212,21 @@ export default function OrderDetailsPage() {
               </p>
 
               {order.user && (
-                <div className="flex items-center gap-2 pt-1 text-xs text-slate-600">
-                  <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Booked by Rep: <strong>{order.user.firstName} {order.user.lastName}</strong> ({order.user.role})</span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Booked by Rep: <strong>{order.user.firstName} {order.user.lastName}</strong> ({order.user.role})</span>
+                  </div>
+                  {order.user.manager ? (
+                    <div className="flex items-center gap-1.5 text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Reporting Manager: <strong>{order.user.manager.firstName} {order.user.manager.lastName}</strong> ({order.user.manager.role})</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">
+                      <span>Approval Authority: <strong>Area Sales Manager (ASM)</strong></span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -156,46 +242,103 @@ export default function OrderDetailsPage() {
           </div>
         </div>
 
-        {/* Status Flow Progression */}
-        <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Update Order Lifecycle:</span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {order.status !== 'CONFIRMED' && order.status !== 'SHIPPED' && order.status !== 'DELIVERED' && (
-              <button
-                onClick={() => handleStatusChange('CONFIRMED')}
-                disabled={!!statusUpdating}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-2xs"
-              >
-                ✓ Confirm Order
-              </button>
+        {/* Status Flow Progression (Manager Approvals Flow) */}
+        <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Approval & Lifecycle:</span>
+            {isPending && (
+              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                Awaiting Manager Confirmation
+              </span>
             )}
-            {order.status === 'CONFIRMED' && (
-              <button
-                onClick={() => handleStatusChange('SHIPPED')}
-                disabled={!!statusUpdating}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-2xs"
-              >
-                🚚 Dispatch & Ship
-              </button>
+            {isApproved && (
+              <span className="text-[10px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                Manager Approved · Ready for Dispatch
+              </span>
             )}
-            {order.status === 'SHIPPED' && (
-              <button
-                onClick={() => handleStatusChange('DELIVERED')}
-                disabled={!!statusUpdating}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-2xs"
-              >
-                📦 Mark Delivered
-              </button>
+            {isShipped && (
+              <span className="text-[10px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                Dispatched · In Transit
+              </span>
             )}
-            {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
-              <button
-                onClick={() => handleStatusChange('CANCELLED')}
-                disabled={!!statusUpdating}
-                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-all"
-              >
-                ✕ Cancel Order
-              </button>
+            {isDelivered && (
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                Delivered Successfully
+              </span>
             )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {isPending && (
+              (() => {
+                const isManager = user?.id === order.user?.managerId ||
+                  ['ASM', 'RSM', 'ZM', 'NSM'].includes(user?.role || '');
+
+                if (isManager) {
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleStatusChange('PROCESSING')}
+                        disabled={!!statusUpdating}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" /> Approve & Confirm (as Manager)
+                      </button>
+                      <button
+                        onClick={() => handleStatusChange('CANCELLED')}
+                        disabled={!!statusUpdating}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                      >
+                        ✕ Reject
+                      </button>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl font-medium">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Pending Manager Approval by: <strong>{order.user?.manager ? `${order.user.manager.firstName} ${order.user.manager.lastName} (${order.user.manager.role})` : 'Assigned ASM / RSM / ZM / NSM'}</strong></span>
+                    </div>
+                  );
+                }
+              })()
+            )}
+            {(() => {
+              const isManager = user?.id === order.user?.managerId ||
+                ['ASM', 'RSM', 'ZM', 'NSM'].includes(user?.role || '');
+
+              return (
+                <>
+                  {isApproved && isManager && (
+                    <button
+                      onClick={() => handleStatusChange('DISPATCHED')}
+                      disabled={!!statusUpdating}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Truck className="w-3.5 h-3.5" /> Dispatch & Ship
+                    </button>
+                  )}
+                  {isShipped && isManager && (
+                    <button
+                      onClick={() => handleStatusChange('DELIVERED')}
+                      disabled={!!statusUpdating}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Package className="w-3.5 h-3.5" /> Mark Delivered
+                    </button>
+                  )}
+                  {!isCancelled && !isDelivered && !isPending && isManager && (
+                    <button
+                      onClick={() => handleStatusChange('CANCELLED')}
+                      disabled={!!statusUpdating}
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    >
+                      ✕ Cancel Order
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -347,6 +490,8 @@ export default function OrderDetailsPage() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
