@@ -838,11 +838,11 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
                       <td className="px-4 py-3.5">
                         <Link href={`/dashboard/doctors/${doc.id}`} className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs flex-shrink-0">
-                            {doc.firstName?.[0] || 'D'}{doc.lastName?.[0] || 'R'}
+                            {doc.firstName?.[0] || 'D'}{doc.lastName?.[0] || (doc.firstName?.[1] || 'R')}
                           </div>
                           <div>
                             <p className="font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
-                              {doc.salutation || 'Dr.'} {doc.firstName} {doc.lastName}
+                              {doc.salutation || 'Dr.'} {doc.firstName || ''} {doc.lastName || ''}
                               {doc.isKol && (
                                 <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5">
                                   <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> KOL
@@ -890,11 +890,11 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
                       {/* Class & Rx Potential */}
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-1.5">
-                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${CLASSIFICATION_COLORS[doc.classification]}`}>
-                            {doc.classification.replace('_', '+')}
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${CLASSIFICATION_COLORS[doc.classification || 'B'] || 'bg-slate-100 text-slate-700'}`}>
+                            {doc.classification ? doc.classification.replace('_', '+') : 'Class B'}
                           </span>
                           <span className="text-xs font-semibold text-slate-600">
-                            {doc.prescriptionPotential}/10
+                            {doc.prescriptionPotential ? (doc.prescriptionPotential > 100 ? `₹${(doc.prescriptionPotential / 1000).toFixed(0)}k` : `${doc.prescriptionPotential}/10`) : '—'}
                           </span>
                         </div>
                       </td>
@@ -1468,6 +1468,15 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
           qc.invalidateQueries({ queryKey: ['headquarters-list'] });
         }}
       />
+
+      {/* ──────────────── MODAL: CURATE DOCTOR DETAILING SLIDES ──────────────── */}
+      {curatingDoctor && (
+        <DoctorDetailingPlanModal
+          isOpen={!!curatingDoctor}
+          onClose={() => setCuratingDoctor(null)}
+          doctor={curatingDoctor}
+        />
+      )}
     </div>
   );
 }

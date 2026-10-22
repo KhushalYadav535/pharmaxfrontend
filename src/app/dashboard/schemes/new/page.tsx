@@ -11,10 +11,7 @@ import {
 } from 'lucide-react';
 
 const SCHEME_TYPES = [
-  { id: 'cashback', label: 'Cashback Rebate', icon: '💰', desc: 'Direct cash return on order threshold' },
-  { id: 'free_goods', label: 'Free Goods / Bonus', icon: '🎁', desc: '10+1 or 20+3 product bonus units' },
-  { id: 'display_incentive', label: 'Display Incentive', icon: '🖼️', desc: 'Merchandising and shelf placement reward' },
-  { id: 'loyalty', label: 'Loyalty Program', icon: '⭐', desc: 'Tiered quarterly purchase bonus' },
+  { id: 'free_goods', label: 'Free Goods / Bonus', icon: '🎁', desc: 'Complimentary product bonus units' },
 ];
 
 export default function NewSchemePage() {
@@ -24,7 +21,7 @@ export default function NewSchemePage() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    type: 'cashback',
+    type: 'free_goods',
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().slice(0, 10),
     targetRole: 'retailer',
@@ -119,7 +116,7 @@ export default function NewSchemePage() {
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. Q3 Monsoon Antibiotic Drive - 10+1 Free Goods"
+            placeholder="e.g. Q3 Monsoon Antibiotic Drive - Free Goods / Bonus Scheme"
             className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-emerald-500"
             required
           />

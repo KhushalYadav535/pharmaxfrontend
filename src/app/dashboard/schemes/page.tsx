@@ -13,15 +13,11 @@ import {
 import { formatDate } from '@/lib/utils';
 
 const SCHEME_TYPES = [
-  { id: 'free_goods', label: '10+1 Free Goods / Bonus', icon: '🎁', desc: 'Buy X units get Y free complimentary' },
-  { id: 'discount', label: 'Trade Discount %', icon: '🏷️', desc: 'Percentage invoice discount on billing' },
-  { id: 'cashback', label: 'Cashback / Credit Note', icon: '💰', desc: 'Direct credit note incentive for chemists' },
-  { id: 'display_incentive', label: 'Display Incentive', icon: '🖼️', desc: 'Counter and shelf merchandising bonus' },
-  { id: 'loyalty', label: 'Quarterly Loyalty Program', icon: '⭐', desc: 'Volume tier quarterly bonus' },
+  { id: 'free_goods', label: 'Free Goods / Bonus', icon: '🎁', desc: 'Buy X units get Y free complimentary' },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
-  free_goods: 'Free Goods (10+1)',
+  free_goods: 'Free Goods / Bonus',
   discount: 'Trade Discount',
   cashback: 'Cashback',
   display_incentive: 'Display Incentive',
@@ -37,11 +33,11 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 const QUICK_TEMPLATES = [
-  { name: '10+1 Free Goods Offer', type: 'free_goods', minPurchase: 10, reward: '10+1 Free Goods (1 Unit Free)' },
-  { name: '20+2 Mega Bonus Deal', type: 'free_goods', minPurchase: 20, reward: '20+2 Free Goods (2 Units Free)' },
-  { name: '50+6 Stockist Bulk Scheme', type: 'free_goods', minPurchase: 50, reward: '50+6 Free Goods (6 Units Free)' },
-  { name: '5% Prompt Payment Discount', type: 'discount', minPurchase: 5000, reward: '5% Instant Cash Discount' },
-  { name: '10% Monsoon Volume Rebate', type: 'cashback', minPurchase: 10000, reward: '10% Quarterly Credit Note' },
+  { name: '10+1 Standard Bonus (10%)', type: 'free_goods', buyQuantity: 10, freeQuantity: 1, minPurchase: 10, reward: '10+1 Free Goods' },
+  { name: '10+2 Margin Booster (20%)', type: 'free_goods', buyQuantity: 10, freeQuantity: 2, minPurchase: 10, reward: '10+2 Free Goods' },
+  { name: '10+3 Launch Incentive (30%)', type: 'free_goods', buyQuantity: 10, freeQuantity: 3, minPurchase: 10, reward: '10+3 Free Goods' },
+  { name: '20+2 Volume Slab (10%)', type: 'free_goods', buyQuantity: 20, freeQuantity: 2, minPurchase: 20, reward: '20+2 Free Goods' },
+  { name: '50+6 Stockist Sourcing (12%)', type: 'free_goods', buyQuantity: 50, freeQuantity: 6, minPurchase: 50, reward: '50+6 Free Goods' },
 ];
 
 function CountdownTimer({ endDate }: { endDate: string }) {
@@ -105,6 +101,7 @@ export default function SchemesPage() {
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState('');
 
   const initialFormState = {
     name: '',
@@ -113,8 +110,12 @@ export default function SchemesPage() {
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     targetRole: 'ALL',
+    buyQuantity: 10,
+    freeQuantity: 2,
+    productIds: [] as string[],
+    isAllProducts: true,
     minPurchase: '10',
-    reward: '10+1 Free Goods (1 Unit Free)',
+    reward: '10+2 Free Goods',
     isActive: true,
   };
 
@@ -179,11 +180,25 @@ export default function SchemesPage() {
   const handleOpenAdd = () => {
     setEditingId(null);
     setForm(initialFormState);
+    setProductSearch('');
     setModalOpen(true);
   };
 
   const handleOpenEdit = (scheme: any) => {
     setEditingId(scheme.id);
+    setProductSearch('');
+
+    let buy = scheme.buyQuantity || (scheme.minPurchase ? Math.round(scheme.minPurchase) : 10);
+    let free = scheme.freeQuantity || 1;
+    if (!scheme.buyQuantity || !scheme.freeQuantity) {
+      const m = (scheme.reward || scheme.name || '').match(/(\d+)\s*\+\s*(\d+)/);
+      if (m) {
+        buy = parseInt(m[1], 10) || buy;
+        free = parseInt(m[2], 10) || free;
+      }
+    }
+    const pIds = Array.isArray(scheme.productIds) ? scheme.productIds : [];
+
     setForm({
       name: scheme.name || '',
       description: scheme.description || '',
@@ -191,8 +206,12 @@ export default function SchemesPage() {
       startDate: scheme.startDate ? new Date(scheme.startDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
       endDate: scheme.endDate ? new Date(scheme.endDate).toISOString().slice(0, 10) : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       targetRole: scheme.targetRole || 'ALL',
-      minPurchase: scheme.minPurchase ? String(scheme.minPurchase) : '10',
-      reward: scheme.reward || '',
+      buyQuantity: buy,
+      freeQuantity: free,
+      productIds: pIds,
+      isAllProducts: pIds.length === 0,
+      minPurchase: String(buy),
+      reward: scheme.reward || `${buy}+${free} Free Goods`,
       isActive: scheme.isActive !== false,
     });
     setModalOpen(true);
@@ -205,12 +224,16 @@ export default function SchemesPage() {
   };
 
   const handleApplyTemplate = (tpl: typeof QUICK_TEMPLATES[0]) => {
+    const buy = tpl.buyQuantity || 10;
+    const free = tpl.freeQuantity !== undefined ? tpl.freeQuantity : 1;
     setForm(f => ({
       ...f,
       name: tpl.name,
       type: tpl.type,
-      minPurchase: String(tpl.minPurchase),
-      reward: tpl.reward,
+      buyQuantity: buy,
+      freeQuantity: free,
+      minPurchase: String(tpl.minPurchase || buy),
+      reward: tpl.reward || `${buy}+${free} Free Goods`,
     }));
   };
 
@@ -218,10 +241,12 @@ export default function SchemesPage() {
     if (!product) return;
     setForm(f => ({
       ...f,
-      name: `${product.name} - 10+1 Trade Scheme`,
-      description: `Buy 10 units of ${product.name} and receive 1 unit complimentary. Valid for trade pharmacies & stockists.`,
-      reward: `10+1 Free Goods (${product.name})`,
-      minPurchase: '10',
+      name: `${product.name} - ${f.buyQuantity}+${f.freeQuantity} Trade Scheme`,
+      description: `Buy ${f.buyQuantity} units of ${product.name} and receive ${f.freeQuantity} unit(s) complimentary. Valid for trade pharmacies & stockists.`,
+      reward: `${f.buyQuantity}+${f.freeQuantity} Free Goods (${product.name})`,
+      minPurchase: String(f.buyQuantity),
+      isAllProducts: false,
+      productIds: [product.id],
     }));
   };
 
@@ -232,10 +257,17 @@ export default function SchemesPage() {
       return;
     }
 
+    const payload = {
+      ...form,
+      minPurchase: form.buyQuantity,
+      productIds: form.isAllProducts ? [] : form.productIds,
+      reward: form.type === 'free_goods' ? `${form.buyQuantity}+${form.freeQuantity} Free Goods` : form.reward,
+    };
+
     if (editingId) {
-      updateMutation.mutate({ id: editingId, body: form });
+      updateMutation.mutate({ id: editingId, body: payload });
     } else {
-      createMutation.mutate(form);
+      createMutation.mutate(payload);
     }
   };
 
@@ -277,7 +309,7 @@ export default function SchemesPage() {
             </span>
           </div>
           <p className="text-slate-500 text-xs mt-1">
-            Create, customize, edit, and delete trade promotions (10+1 free goods, volume discounts, cash rebates)
+            Create, customize, edit, and delete trade promotions (Free goods / bonus, volume slabs, product schemes)
           </p>
         </div>
 
@@ -321,7 +353,7 @@ export default function SchemesPage() {
           </div>
           <div>
             <p className="text-2xl font-black text-slate-900">{freeGoodsCount}</p>
-            <p className="text-xs font-medium text-slate-500">10+1 Free Goods</p>
+            <p className="text-xs font-medium text-slate-500">Free Goods / Bonus</p>
           </div>
         </div>
 
@@ -402,7 +434,7 @@ export default function SchemesPage() {
           </div>
           <p className="text-base font-bold text-slate-900">No Trade Schemes Found</p>
           <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
-            {search ? `No schemes match query "${search}". Try clearing search.` : 'Create promotional 10+1 free goods or discount slabs for field reps to use.'}
+            {search ? `No schemes match query "${search}". Try clearing search.` : 'Create promotional free goods / bonus schemes for field reps to use.'}
           </p>
           {isManager && (
             <button
@@ -468,7 +500,7 @@ export default function SchemesPage() {
                     <div className="text-right">
                       <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Scheme Offer / Bonus</p>
                       <p className="text-sm font-black text-emerald-700 mt-0.5">
-                        {scheme.reward || '10+1 Free'}
+                        {scheme.reward || 'Free Goods / Bonus'}
                       </p>
                     </div>
                   </div>
@@ -607,7 +639,7 @@ export default function SchemesPage() {
                   required
                   value={form.name}
                   onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. PNCROS 40 - 10+1 Trade Scheme"
+                  placeholder="e.g. PNCROS 40 - Free Goods / Bonus Scheme"
                   className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>
@@ -626,6 +658,11 @@ export default function SchemesPage() {
                         {t.icon} {t.label}
                       </option>
                     ))}
+                    {form.type && !SCHEME_TYPES.some(t => t.id === form.type) && (
+                      <option value={form.type}>
+                        {TYPE_ICONS[form.type] || '📌'} {TYPE_LABELS[form.type] || form.type}
+                      </option>
+                    )}
                   </select>
                 </div>
 
@@ -643,38 +680,189 @@ export default function SchemesPage() {
                 </div>
               </div>
 
-              {/* Min Purchase Qty & Scheme Reward */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Min Purchase Quantity (Threshold Units)
-                  </label>
-                  <input
-                    type="number"
-                    value={form.minPurchase}
-                    onChange={(e) => setForm(f => ({ ...f, minPurchase: e.target.value }))}
-                    placeholder="e.g. 10"
-                    className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Trigger for MR mobile app auto-suggestion
-                  </span>
+              {/* ── Product Applicability (All Products or Specific Products) ── */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <div>
+                    <label className="block text-xs font-black text-slate-800 uppercase tracking-wide">
+                      Product Applicability <span className="text-rose-500">*</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Apply across all formulations or link to specific products
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, isAllProducts: true, productIds: [] }))}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
+                        form.isAllProducts
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      🌟 All Products
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, isAllProducts: false }))}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
+                        !form.isAllProducts
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      💊 Select Products ({form.productIds.length})
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Scheme Reward / Free Unit Benefit <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    required
-                    value={form.reward}
-                    onChange={(e) => setForm(f => ({ ...f, reward: e.target.value }))}
-                    placeholder="e.g. 10+1 Free Goods (1 Unit Free) or 10% Off"
-                    className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Appears directly on the MR order line item
+                {!form.isAllProducts && (
+                  <div className="mt-3 pt-3 border-t border-slate-200">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          placeholder="Filter medicines by name..."
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, productIds: products.map(p => p.id) }))}
+                          className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded-md hover:bg-slate-100 text-slate-700"
+                        >
+                          Select All ({products.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, productIds: [] }))}
+                          className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded-md hover:bg-slate-100 text-rose-600"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto border border-slate-200 bg-white rounded-xl divide-y divide-slate-100 p-1">
+                      {products
+                        .filter(p => !productSearch || p.name?.toLowerCase().includes(productSearch.toLowerCase()))
+                        .map(p => {
+                          const isSelected = form.productIds.includes(p.id);
+                          return (
+                            <label
+                              key={p.id}
+                              className={`flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer rounded-lg transition-colors ${
+                                isSelected ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setForm(f => ({
+                                      ...f,
+                                      productIds: isSelected
+                                        ? f.productIds.filter(id => id !== p.id)
+                                        : [...f.productIds, p.id]
+                                    }));
+                                  }}
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                                />
+                                <span>{p.name}</span>
+                              </div>
+                              {p.packing && <span className="text-[10px] text-slate-400 font-medium">{p.packing}</span>}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Buy (X) and Free / Extra Quantity (Y) Boxes ── */}
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🎁</span>
+                    <label className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                      Free Goods / Trade Bonus Configuration
+                    </label>
+                  </div>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-300">
+                    {((form.freeQuantity / (form.buyQuantity || 10)) * 100).toFixed(0)}% Bonus Quantity
                   </span>
+                </div>
+                <p className="text-[11px] text-emerald-800 font-medium mb-3">
+                  Specify how many units must be bought (first box) and how many extra free units are given (second box).
+                </p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Buy Quantity (X) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={form.buyQuantity}
+                        onChange={(e) => {
+                          const buy = parseInt(e.target.value, 10) || 1;
+                          setForm(f => ({
+                            ...f,
+                            buyQuantity: buy,
+                            minPurchase: String(buy),
+                            reward: `${buy}+${f.freeQuantity} Free Goods`,
+                          }));
+                        }}
+                        className="w-full px-3.5 py-2.5 text-sm font-black border border-emerald-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 bg-white text-slate-900"
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">Billed</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Free / Extra Quantity (Y) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={form.freeQuantity}
+                        onChange={(e) => {
+                          const free = parseInt(e.target.value, 10) || 1;
+                          setForm(f => ({
+                            ...f,
+                            freeQuantity: free,
+                            reward: `${f.buyQuantity}+${free} Free Goods`,
+                          }));
+                        }}
+                        className="w-full px-3.5 py-2.5 text-sm font-black border border-emerald-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 bg-white text-slate-900"
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-600">Extra Free</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calculation Examples Box */}
+                <div className="mt-3 bg-white border border-emerald-200 rounded-xl p-3">
+                  <span className="text-[11px] font-black text-emerald-900 block mb-1">
+                    Proportional Calculation Preview ({form.buyQuantity}+{form.freeQuantity} Scheme):
+                  </span>
+                  <div className="text-[11px] text-slate-600 space-y-0.5 font-medium">
+                    <p>• If someone orders <strong>5 units</strong> ➔ receives <strong>+{Math.floor((5 * form.freeQuantity) / (form.buyQuantity || 10))} extra unit</strong> (Total: {5 + Math.floor((5 * form.freeQuantity) / (form.buyQuantity || 10))} units)</p>
+                    <p>• If someone orders <strong>{form.buyQuantity} units</strong> ➔ receives <strong>+{form.freeQuantity} extra units</strong> (Total: {form.buyQuantity + form.freeQuantity} units)</p>
+                    <p>• If someone orders <strong>100 units</strong> ➔ receives <strong>+{Math.floor((100 * form.freeQuantity) / (form.buyQuantity || 10))} extra units</strong> (Total: {100 + Math.floor((100 * form.freeQuantity) / (form.buyQuantity || 10))} units)</p>
+                  </div>
                 </div>
               </div>
 

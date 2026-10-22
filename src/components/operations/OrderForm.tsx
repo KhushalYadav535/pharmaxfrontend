@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { ShoppingCart, Send, AlertCircle, X, Plus, Trash2, Calculator, Store, Truck } from 'lucide-react';
+import { ShoppingCart, Send, AlertCircle, X, Plus, Trash2, Calculator, Store, Truck, Gift, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 
 function Field({ label, required, children, span2 }: { label: string; required?: boolean; children: React.ReactNode; span2?: boolean }) {
@@ -36,7 +36,17 @@ export default function OrderForm({ onClose, editData }: OrderFormProps) {
   const [notes, setNotes] = useState('');
 
   const [items, setItems] = useState<any[]>([
-    { id: Date.now(), productId: '', quantity: 1, productScheme: '', unitPrice: 0, discount: 0, totalPrice: 0 }
+    {
+      id: Date.now(),
+      productId: '',
+      quantity: 1,
+      selectedSchemeId: '',
+      productScheme: '',
+      unitPrice: 0,
+      discount: 0,
+      totalPrice: 0,
+      bonusUnits: 0,
+    }
   ]);
   const [totalAmount, setTotalAmount] = useState(0);
 
@@ -47,6 +57,67 @@ export default function OrderForm({ onClose, editData }: OrderFormProps) {
   const { data: retailers = [] } = useQuery({ queryKey: ['retailers-list'], queryFn: () => api.get('/retailers', { params: { limit: 500 } }).then(r => r.data.data.retailers || []), enabled: customerType === 'RETAILER' });
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors-list'], queryFn: () => api.get('/distributors', { params: { limit: 500 } }).then(r => r.data.data.distributors || []), enabled: customerType === 'DISTRIBUTOR' });
   const { data: products = [] } = useQuery({ queryKey: ['products-list'], queryFn: () => api.get('/products', { params: { limit: 500 } }).then(r => r.data.data.products || []) });
+  const { data: schemes = [] } = useQuery({ queryKey: ['active-schemes-order-form'], queryFn: () => api.get('/schemes', { params: { active: 'true' } }).then(r => r.data.data || []) });
+
+  // Find schemes relevant to a medicine SKU
+  const getProductSchemes = (productId: string) => {
+    if (!productId || !schemes.length) return [];
+    const product = products.find((p: any) => p.id === productId);
+    if (!product) return schemes;
+    const pName = (product.name || '').toLowerCase();
+    const firstWord = pName.split(/[\s-]+/)[0];
+
+    const specific = schemes.filter((s: any) => {
+      if (!s.isActive) return false;
+      // 1. Explicit productIds match
+      if (Array.isArray(s.productIds) && s.productIds.length > 0) {
+        return s.productIds.includes(productId);
+      }
+      // 2. Name or description includes product name or first keyword
+      const sName = (s.name || '').toLowerCase();
+      const sDesc = (s.description || '').toLowerCase();
+      if (firstWord && firstWord.length > 2 && (sName.includes(firstWord) || sDesc.includes(firstWord))) {
+        return true;
+      }
+      return false;
+    });
+
+    if (specific.length > 0) return specific;
+
+    // Universal schemes where no specific products were restricted
+    return schemes.filter((s: any) => s.isActive && (!s.productIds || s.productIds.length === 0));
+  };
+
+  // Calculate free bonus units using exact proportional formula
+  const calculateSchemeBonus = (scheme: any, quantity: number) => {
+    if (!scheme || quantity <= 0) return { bonusUnits: 0, buyQty: 10, freeQty: 1, ratioDesc: '10+1' };
+
+    let buyQty = scheme.buyQuantity || (scheme.minPurchase ? Math.round(scheme.minPurchase) : 10);
+    let freeQty = scheme.freeQuantity || 1;
+
+    // Fallback parser from reward/name string
+    if (!scheme.buyQuantity || !scheme.freeQuantity) {
+      const match = (scheme.reward || scheme.name || '').match(/(\d+)\s*\+\s*(\d+)/);
+      if (match) {
+        buyQty = parseInt(match[1], 10) || buyQty;
+        freeQty = parseInt(match[2], 10) || freeQty;
+      }
+    }
+
+    if (buyQty <= 0) buyQty = 10;
+    if (freeQty <= 0) freeQty = 1;
+
+    // Proportional formula: Buy 10 get 2. If qty=5 -> (5*2)/10 = 1 free unit! If qty=100 -> (100*2)/10 = 20 free units!
+    const bonusUnits = Math.floor((quantity * freeQty) / buyQty);
+
+    return {
+      bonusUnits,
+      buyQty,
+      freeQty,
+      ratioDesc: `${buyQty}+${freeQty}`,
+      percentEquivalent: ((freeQty / buyQty) * 100).toFixed(0),
+    };
+  };
 
   // Auto-calculation logic for items
   useEffect(() => {
@@ -67,20 +138,76 @@ export default function OrderForm({ onClose, editData }: OrderFormProps) {
 
   const handleProductChange = (index: number, productId: string) => {
     const product = products.find((p: any) => p.id === productId);
+    const applicableSchemes = getProductSchemes(productId);
+    const autoScheme = applicableSchemes[0] || null;
+
     const newItems = [...items];
+    const qty = Number(newItems[index].quantity) || 1;
     newItems[index].productId = productId;
     newItems[index].unitPrice = product ? Number(product.ptr) : 0; // Default to PTR
+
+    if (autoScheme) {
+      const { bonusUnits, ratioDesc } = calculateSchemeBonus(autoScheme, qty);
+      newItems[index].selectedSchemeId = autoScheme.id;
+      newItems[index].productScheme = `${ratioDesc} Free Goods (+${bonusUnits} Free)`;
+      newItems[index].bonusUnits = bonusUnits;
+    } else {
+      newItems[index].selectedSchemeId = '';
+      newItems[index].productScheme = '';
+      newItems[index].bonusUnits = 0;
+    }
+
+    setItems(newItems);
+  };
+
+  const handleSchemeChange = (index: number, schemeId: string) => {
+    const newItems = [...items];
+    const item = newItems[index];
+    const qty = Number(item.quantity) || 0;
+
+    if (!schemeId) {
+      item.selectedSchemeId = '';
+      item.productScheme = '';
+      item.bonusUnits = 0;
+    } else {
+      const scheme = schemes.find((s: any) => s.id === schemeId);
+      const { bonusUnits, ratioDesc } = calculateSchemeBonus(scheme, qty);
+      item.selectedSchemeId = schemeId;
+      item.productScheme = `${ratioDesc} Free Goods (+${bonusUnits} Free)`;
+      item.bonusUnits = bonusUnits;
+    }
     setItems(newItems);
   };
 
   const handleItemChange = (index: number, field: string, value: any) => {
     const newItems = [...items];
     newItems[index][field] = value;
+
+    if (field === 'quantity') {
+      const qty = Number(value) || 0;
+      if (newItems[index].selectedSchemeId) {
+        const scheme = schemes.find((s: any) => s.id === newItems[index].selectedSchemeId);
+        const { bonusUnits, ratioDesc } = calculateSchemeBonus(scheme, qty);
+        newItems[index].bonusUnits = bonusUnits;
+        newItems[index].productScheme = `${ratioDesc} Free Goods (+${bonusUnits} Free)`;
+      }
+    }
+
     setItems(newItems);
   };
 
   const addItem = () => {
-    setItems([...items, { id: Date.now(), productId: '', quantity: 1, productScheme: '', unitPrice: 0, discount: 0, totalPrice: 0 }]);
+    setItems([...items, {
+      id: Date.now(),
+      productId: '',
+      quantity: 1,
+      selectedSchemeId: '',
+      productScheme: '',
+      unitPrice: 0,
+      discount: 0,
+      totalPrice: 0,
+      bonusUnits: 0,
+    }]);
   };
 
   const removeItem = (index: number) => {
@@ -112,7 +239,7 @@ export default function OrderForm({ onClose, editData }: OrderFormProps) {
         items: items.map(i => ({
           productId: i.productId,
           quantity: Number(i.quantity),
-          productScheme: i.productScheme,
+          productScheme: i.productScheme || (i.bonusUnits > 0 ? `+${i.bonusUnits} Free Goods` : null),
           unitPrice: Number(i.unitPrice),
           discount: Number(i.discount),
           totalPrice: Number(i.totalPrice)
@@ -195,36 +322,87 @@ export default function OrderForm({ onClose, editData }: OrderFormProps) {
             </div>
 
             <div className="md:col-span-2 space-y-3">
-              {items.map((item, index) => (
-                <div key={item.id} className="flex flex-wrap md:flex-nowrap items-start gap-3 bg-white p-3 rounded-xl border border-gray-200 shadow-sm relative group">
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Product *</label>
-                    <select value={item.productId} onChange={e => handleProductChange(index, e.target.value)} className={selectCls}>
-                      <option value="">Select Product...</option>
-                      {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+              {items.map((item, index) => {
+                const applicableSchemes = getProductSchemes(item.productId);
+                const activeScheme = schemes.find((s: any) => s.id === item.selectedSchemeId);
+
+                return (
+                  <div key={item.id} className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-sm relative group space-y-2">
+                    <div className="flex flex-wrap md:flex-nowrap items-start gap-3">
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Product *</label>
+                        <select value={item.productId} onChange={e => handleProductChange(index, e.target.value)} className={selectCls}>
+                          <option value="">Select Product...</option>
+                          {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="w-20">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Qty *</label>
+                        <input type="number" min="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className={inputCls} />
+                      </div>
+
+                      <div className="w-24">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">PTR (₹) *</label>
+                        <input type="number" min="0" step="any" value={item.unitPrice} onChange={e => handleItemChange(index, 'unitPrice', e.target.value)} className={inputCls} />
+                      </div>
+
+                      {/* Trade Scheme Dropdown */}
+                      <div className="flex-1 min-w-[220px]">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase">Trade Scheme / Bonus</label>
+                          {item.bonusUnits > 0 && (
+                            <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-300">
+                              +{item.bonusUnits} Free
+                            </span>
+                          )}
+                        </div>
+                        <select
+                          value={item.selectedSchemeId}
+                          onChange={e => handleSchemeChange(index, e.target.value)}
+                          className={selectCls}
+                        >
+                          <option value="">No Scheme (Standard PTR)</option>
+                          {applicableSchemes.map((s: any) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.buyQuantity || 10}+{s.freeQuantity || 1} Free)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="w-24">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total (₹)</label>
+                        <input type="number" readOnly value={item.totalPrice} className={`${inputCls} bg-gray-50 border-transparent font-bold text-gray-700`} />
+                      </div>
+
+                      <button type="button" onClick={() => removeItem(index)} className="mt-6 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Scheme Live Badge & Breakdown */}
+                    {activeScheme && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Gift className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="font-black text-emerald-900">
+                            {activeScheme.name}:
+                          </span>
+                          <span className="font-semibold text-emerald-800">
+                            {item.bonusUnits > 0
+                              ? `Order of ${item.quantity} units gives +${item.bonusUnits} Extra Free Goods (Billed: ${item.quantity} | Total Supply: ${Number(item.quantity) + item.bonusUnits} Units)`
+                              : `Order at least ${Math.ceil((activeScheme.buyQuantity || 10) / (activeScheme.freeQuantity || 1))} units to qualify for proportional free goods`}
+                          </span>
+                        </div>
+                        <span className="font-black text-emerald-800 text-[11px] bg-white px-2 py-0.5 rounded border border-emerald-200 self-start sm:self-auto">
+                          {item.bonusUnits > 0 ? `🎁 +${item.bonusUnits} Free Stock Included` : `Offer: ${activeScheme.buyQuantity || 10}+${activeScheme.freeQuantity || 1}`}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="w-20">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Qty *</label>
-                    <input type="number" min="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className={inputCls} />
-                  </div>
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">PTR (₹) *</label>
-                    <input type="number" min="0" step="any" value={item.unitPrice} onChange={e => handleItemChange(index, 'unitPrice', e.target.value)} className={inputCls} />
-                  </div>
-                  <div className="w-28">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Scheme</label>
-                    <input type="text" value={item.productScheme} onChange={e => handleItemChange(index, 'productScheme', e.target.value)} placeholder="e.g. 10+1" className={inputCls} />
-                  </div>
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total (₹)</label>
-                    <input type="number" readOnly value={item.totalPrice} className={`${inputCls} bg-gray-50 border-transparent font-bold text-gray-700`} />
-                  </div>
-                  <button type="button" onClick={() => removeItem(index)} className="mt-6 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
               
               <button type="button" onClick={addItem} className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl transition-colors w-max">
                 <Plus className="w-4 h-4" /> Add Item
@@ -243,12 +421,27 @@ export default function OrderForm({ onClose, editData }: OrderFormProps) {
                 </div>
               </div>
               
-              <div className="bg-blue-50 p-5 rounded-2xl border-2 border-blue-200 shadow-sm flex flex-col justify-center">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-bold text-blue-500 uppercase tracking-wide">Extra Discount</span>
-                  <input type="number" min="0" step="any" value={orderDiscount} onChange={e => setOrderDiscount(parseFloat(e.target.value) || 0)} className="w-24 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-right outline-none focus:ring-2 focus:ring-blue-400" />
+              <div className="bg-blue-50 p-5 rounded-2xl border-2 border-blue-200 shadow-sm flex flex-col justify-center space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                  <span>Billed Units:</span>
+                  <span>{items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)} Units</span>
                 </div>
-                <div className="h-px bg-blue-200/50 my-2 w-full" />
+                {items.some(i => i.bonusUnits > 0) && (
+                  <div className="flex items-center justify-between text-xs font-black text-emerald-700 bg-emerald-100/70 px-2 py-1 rounded-lg">
+                    <span>🎁 Extra Bonus Free Stock:</span>
+                    <span>+{items.reduce((sum, i) => sum + (Number(i.bonusUnits) || 0), 0)} Units</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs font-bold text-blue-900 border-b border-blue-200/60 pb-2">
+                  <span>Total Units to Supply:</span>
+                  <span>{items.reduce((sum, i) => sum + (Number(i.quantity) || 0) + (Number(i.bonusUnits) || 0), 0)} Units</span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] font-bold text-blue-500 uppercase tracking-wide">Extra Cash Discount</span>
+                  <input type="number" min="0" step="any" value={orderDiscount} onChange={e => setOrderDiscount(parseFloat(e.target.value) || 0)} className="w-24 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-right outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                </div>
+                <div className="h-px bg-blue-200/50 my-1 w-full" />
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calculator className="w-5 h-5 text-blue-600" />
