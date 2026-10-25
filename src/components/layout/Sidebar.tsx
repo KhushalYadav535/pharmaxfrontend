@@ -117,6 +117,14 @@ const NAV_SECTIONS: NavSection[] = [
         badgeColor: 'bg-emerald-100 text-emerald-800',
       },
       { label: 'Field Attendance', href: '/dashboard/attendance', icon: Clock },
+      {
+        label: 'MR App Usage and Logins',
+        href: '/dashboard/reports/mr-activity',
+        icon: Activity,
+        roles: ['ASM', 'RSM', 'ZM', 'NSM', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'Live',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
       { label: 'Leave Desk', href: '/dashboard/leave', icon: CalendarOff },
       {
         label: 'TA / DA & Expenses',
@@ -208,7 +216,6 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Reporting Tree & Hierarchy', href: '/dashboard/workforce/reporting-tree', icon: Network, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'] },
       { label: 'Territory Allocations & Transfers', href: '/dashboard/workforce/assignments', icon: MapPin, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'], badge: 'Transfer', badgeColor: 'bg-blue-100 text-blue-700' },
       { label: 'Employee Movements Register', href: '/dashboard/workforce/movements', icon: TrendingUp, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN'] },
-      { label: 'Daily Attendance Register', href: '/dashboard/workforce/attendance', icon: Clock, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'], badge: 'Daily', badgeColor: 'bg-emerald-100 text-emerald-800' },
       { label: 'Attendance Exceptions', href: '/dashboard/workforce/attendance/exceptions', icon: AlertTriangle, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM'], badge: 'Alerts', badgeColor: 'bg-amber-100 text-amber-800' },
       { label: 'Attendance Regularization', href: '/dashboard/workforce/attendance/regularization', icon: CheckSquare, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'] },
       { label: 'Leave Applications & Approvals', href: '/dashboard/workforce/leave/applications', icon: CalendarOff, roles: ['SALES_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'ASM', 'RSM', 'ZM', 'NSM', 'MR', 'TRADE_REP', 'DISTRIBUTOR_REP'], badge: 'Leaves', badgeColor: 'bg-purple-100 text-purple-700' },
