@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, AlertCircle, ChevronDown, Phone, Mail, MapPin, Store } from 'lucide-react';
 import { api } from '@/lib/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { INDIAN_STATES, INDIAN_STATES_AND_DISTRICTS } from '@/lib/constants';
 
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
@@ -15,6 +15,7 @@ const RING = '#8b5cf633'; // Violet
 
 export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
+  const qc = useQueryClient();
 
   // Queries
   const { data: areaList = [] } = useQuery({
@@ -120,7 +121,9 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
         drugLicenseNumber: drugLicenseNumber || undefined, 
         drugLicenseExpiry: drugLicenseExpiry ? new Date(drugLicenseExpiry).toISOString() : undefined,
         visitFrequency: Number(visitFrequency) || 2,
+        approvalStatus: 'APPROVED',
       });
+      await qc.invalidateQueries({ queryKey: ['retailers'] });
       if (onSuccess) onSuccess();
       else router.push('/dashboard/retailers');
     } catch (e: any) { setError(e.response?.data?.message || e.message || 'Failed to save retailer'); }

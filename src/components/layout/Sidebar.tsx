@@ -13,7 +13,8 @@ import {
   Sparkles, Boxes, UserCog, LineChart, CheckCircle2, GraduationCap,
   FileSpreadsheet, Receipt, CalendarOff, Gift, MonitorPlay, Warehouse,
   Search, X, Activity, ShieldCheck, Bell, SlidersHorizontal, Route, Plus,
-  Network, Briefcase, Layers, AlertTriangle, Award, UserCheck
+  Network, Briefcase, Layers, AlertTriangle, Award, UserCheck,
+  Sun, Moon, PlayCircle, Flag
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,6 +31,7 @@ interface NavSection {
   icon: React.ComponentType<{ className?: string }>;
   accentColor: string;
   badge?: string;
+  roles?: string[];
   items: NavItem[];
 }
 
@@ -49,6 +51,51 @@ const NAV_SECTIONS: NavSection[] = [
         badgeColor: 'bg-emerald-100 text-emerald-800',
       },
       { label: 'System Notifications', href: '/dashboard/notifications', icon: Bell },
+    ],
+  },
+  {
+    title: 'My Day',
+    icon: Sun,
+    accentColor: '#EA580C',
+    badge: 'Daily',
+    roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+    items: [
+      {
+        label: 'Start Day',
+        href: '/dashboard/day/start',
+        icon: Sun,
+        roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'Start',
+        badgeColor: 'bg-amber-100 text-amber-800',
+      },
+      {
+        label: 'Next Visit',
+        href: '/dashboard/visits/next-call',
+        icon: PlayCircle,
+        roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'Live',
+        badgeColor: 'bg-blue-100 text-blue-800',
+      },
+      {
+        label: 'Batch Day Planner',
+        href: '/dashboard/visits/plan-new',
+        icon: Plus,
+        roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+      },
+      {
+        label: 'Day Summary',
+        href: '/dashboard/daily-reports',
+        icon: FileText,
+        roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+      },
+      {
+        label: 'Close Day',
+        href: '/dashboard/day/close',
+        icon: Moon,
+        roles: ['MR', 'TRADE_REP', 'DISTRIBUTOR_REP', 'SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'],
+        badge: 'End Day',
+        badgeColor: 'bg-slate-200 text-slate-800',
+      },
     ],
   },
   {
@@ -261,6 +308,7 @@ export default function Sidebar({
   // Manage accordion states
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'Overview': true,
+    'My Day': true,
     'CRM & Network': true,
     'Field Operations': true,
     'Workforce & HRMS': true,
@@ -370,6 +418,7 @@ export default function Sidebar({
       {/* ── NAVIGATION LIST ── */}
       <nav className="flex-1 overflow-y-auto py-2 px-2.5 space-y-3.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
         {filteredSections.map((section) => {
+          if (section.roles && !section.roles.includes(user?.role || '')) return null;
           const visible = filterByRole(section.items);
           if (visible.length === 0) return null;
 

@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/utils';
 import { Store, Plus, Search, X, Loader2, Phone, MapPin, FileText, Star, Edit2, Trash2, Eye, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-const CATEGORIES = ['A+', 'A', 'B', 'C'];
+const CATEGORIES = ['A', 'B', 'C', 'NOT_APPLICABLE'];
 const EMPTY_FORM = {
   name: '', ownerName: '', pharmacistName: '', phone: '', email: '',
   address: '', city: '', state: '', pincode: '', gstNumber: '',
@@ -38,8 +38,10 @@ export default function RetailersPage() {
   });
 
   const categoryColor: Record<string, string> = {
-    'A+': 'bg-purple-50 text-purple-700', A: 'bg-emerald-50 text-emerald-700',
-    B: 'bg-blue-50 text-blue-700', C: 'bg-gray-100 text-gray-600',
+    A: 'bg-emerald-50 text-emerald-700',
+    B: 'bg-blue-50 text-blue-700',
+    C: 'bg-amber-50 text-amber-700',
+    NOT_APPLICABLE: 'bg-gray-100 text-gray-600',
   };
 
   return (
@@ -111,7 +113,14 @@ export default function RetailersPage() {
                   <tr key={ret.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-4">
                       <div>
-                        <p className="font-semibold text-gray-900">{ret.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-900">{ret.name}</p>
+                          {ret.approvalStatus === 'PENDING' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
+                              PENDING
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500 mt-0.5">{ret.pharmacistName ? `Ph: ${ret.pharmacistName}` : 'No pharmacist'}</p>
                       </div>
                     </td>

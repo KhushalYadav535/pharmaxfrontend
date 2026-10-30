@@ -237,12 +237,12 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
 
           let score = 0;
           for (const cell of nonEmptyCells) {
-            const c = String(cell).toLowerCase().replace(/[\s_-]/g, '');
-            if (['doctorname', 'drname', 'name', 'fullname', 'firstname', 'lastname'].includes(c)) score += 5;
-            else if (['specialty', 'specialisation', 'designation', 'qualification', 'degree'].includes(c)) score += 4;
-            else if (['phone', 'mobile', 'mobileno', 'contact', 'cell', 'mobilenumber'].includes(c)) score += 3;
-            else if (['area', 'city', 'address', 'hq', 'headquarter', 'territory'].includes(c)) score += 3;
-            else if (['email', 'emailid', 'sn', 'srno', 'code', 'doctorcode', 'category', 'classification'].includes(c)) score += 2;
+            const c = String(cell).toLowerCase().replace(/[\s_.\-\/]/g, '');
+            if (['doctorname', 'drname', 'name', 'fullname', 'firstname', 'lastname', 'dr'].includes(c)) score += 5;
+            else if (['specialty', 'specialties', 'specialisation', 'specialization', 'designation', 'qualification', 'degree'].includes(c)) score += 4;
+            else if (['phone', 'mobile', 'mobileno', 'contact', 'cell', 'mobilenumber', 'contactnumber'].includes(c)) score += 3;
+            else if (['area', 'city', 'address', 'hq', 'headquarter', 'territory', 'location'].includes(c)) score += 3;
+            else if (['email', 'emailid', 'sn', 'sno', 'srno', 'code', 'doctorcode', 'category', 'classification', 'dob', 'dom'].includes(c)) score += 2;
           }
           if (score > maxScore) {
             maxScore = score;
@@ -254,9 +254,9 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
 
         const getVal = (rowObj: Record<string, string>, ...keys: string[]): string => {
           for (const k of keys) {
-            const cleanK = k.toLowerCase().replace(/[\s_-]/g, '');
+            const cleanK = k.toLowerCase().replace(/[\s_.\-\/]/g, '');
             for (const rk of Object.keys(rowObj)) {
-              if (rk.toLowerCase().replace(/[\s_-]/g, '') === cleanK) {
+              if (rk.toLowerCase().replace(/[\s_.\-\/]/g, '') === cleanK) {
                 const v = rowObj[rk];
                 if (v !== undefined && v !== null && String(v).trim() !== '') {
                   return String(v).trim();
@@ -283,7 +283,7 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
           });
 
           // Extract Doctor Name
-          const fullName = getVal(rowObj, 'doctorName', 'doctor_name', 'drName', 'name', 'fullName', 'firstName');
+          const fullName = getVal(rowObj, 'doctorName', 'doctor_name', 'drName', 'dr_name', 'dr.name', 'name', 'fullName', 'firstName');
           // If row has no name, or is purely numeric (like empty trailing rows [84]), skip!
           if (!fullName || fullName.length < 2 || /^\d+$/.test(fullName)) {
             continue;
@@ -297,9 +297,9 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
           const fName = capitalize(parts[0]);
           const lName = parts.length > 1 ? parts.slice(1).map(capitalize).join(' ') : 'Consultant';
 
-          // Smart specialty mapping from designation / qualification
+          // Smart specialty mapping from designation / qualification / specialties
           const designation = getVal(rowObj, 'designation', 'qualification', 'qual', 'degree');
-          const specialtyRaw = getVal(rowObj, 'specialty', 'specialisation', 'specialization');
+          const specialtyRaw = getVal(rowObj, 'specialty', 'specialties', 'specialisation', 'specialization');
           let mappedSpecialty = specialtyRaw || 'GENERAL_PRACTICE';
           const desigLower = (designation || specialtyRaw).toLowerCase();
           if (desigLower.includes('dgo') || desigLower.includes('gyn') || desigLower.includes('obs')) {
@@ -325,12 +325,14 @@ DOC-103,Dr.,Amit,Verma,GENERAL_PRACTICE,MBBS,B,SECONDARY,Nagpur,Maharashtra,9876
             qualification: designation || getVal(rowObj, 'qualification', 'qual', 'degree') || 'MBBS',
             classification: getVal(rowObj, 'classification', 'class', 'grade') || 'A',
             category: getVal(rowObj, 'category', 'cat', 'detailingCategory') || 'CORE',
-            city: getVal(rowObj, 'area', 'city', 'district') || '',
+            city: getVal(rowObj, 'area', 'city', 'district', 'location') || '',
             state: getVal(rowObj, 'state') || '',
-            phone: getVal(rowObj, 'mobileNo', 'mobile_no', 'phone', 'mobile', 'mobileNumber', 'contactNumber', 'cell'),
+            phone: getVal(rowObj, 'mobileNo', 'mobile_no', 'phone', 'mobile', 'mobileNumber', 'mobile_number', 'contactNumber', 'cell'),
             email: getVal(rowObj, 'emailId', 'email_id', 'email', 'mail'),
             address: getVal(rowObj, 'address', 'clinicAddress', 'address1'),
             pin: getVal(rowObj, 'pin', 'pincode', 'postalCode'),
+            dob: getVal(rowObj, 'dob', 'dateOfBirth', 'date_of_birth', 'birthday'),
+            dom: getVal(rowObj, 'dom', 'marriageAnniversary', 'marriage_anniversary', 'anniversary'),
             hqCode: getVal(rowObj, 'hqCode', 'headquarterCode', 'hq', 'headquarter'),
           });
         }
