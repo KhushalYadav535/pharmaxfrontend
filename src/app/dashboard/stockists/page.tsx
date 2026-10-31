@@ -1,12 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Plus, Search, Loader2, Phone, MapPin, PackageOpen, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import {
+  Plus, Search, Loader2, Phone, MapPin, PackageOpen,
+  ChevronLeft, ChevronRight, FileText, Eye, PowerOff, Power, Trash2
+} from 'lucide-react';
 import Link from 'next/link';
 
 export default function StockistsPage() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -16,26 +20,47 @@ export default function StockistsPage() {
     placeholderData: (prev) => prev,
   });
 
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      isActive ? api.patch(`/stockists/${id}/deactivate`) : api.patch(`/stockists/${id}/reactivate`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['stockists'] });
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to update status');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/stockists/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['stockists'] });
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to delete distributor');
+    },
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 py-6 px-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <PackageOpen className="w-6 h-6 text-cyan-600" /> Stockists
+            <PackageOpen className="w-6 h-6 text-cyan-600" /> Distributors
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Manage wholesale distributors and CFAs</p>
+          <p className="text-gray-500 text-sm mt-1">Manage wholesale distributors, stockists, and fulfillment accounts</p>
         </div>
         <Link href="/dashboard/stockists/new" className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
-          <Plus className="w-4 h-4" /> Add Stockist
+          <Plus className="w-4 h-4" /> Add Distributor
         </Link>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Stockists', value: data?.total ?? 0, color: 'bg-cyan-50 text-cyan-700' },
-          { label: 'Active This Month', value: data?.stockists?.filter((s: any) => s.isActive !== false).length ?? 0, color: 'bg-emerald-50 text-emerald-700' },
+          { label: 'Total Distributors', value: data?.total ?? 0, color: 'bg-cyan-50 text-cyan-700' },
+          { label: 'Active Roster', value: data?.stockists?.filter((s: any) => s.isActive !== false).length ?? 0, color: 'bg-emerald-50 text-emerald-700' },
         ].map((s) => (
           <div key={s.label} className={`rounded-2xl p-4 ${s.color.split(' ')[0]} border border-gray-100`}>
             <p className="text-2xl font-bold text-gray-900">{s.value}</p>
@@ -48,7 +73,7 @@ export default function StockistsPage() {
       <div className="bg-white rounded-2xl border border-gray-100 p-4 flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search stockists by name, city or GSTIN..." className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
+          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search distributors by name, city or GSTIN..." className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
         </div>
       </div>
 
@@ -58,7 +83,7 @@ export default function StockistsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                {['Stockist', 'Contact', 'Location', 'GSTIN', 'Category', 'Visit Days'].map((h) => (
+                {['Distributor', 'Contact', 'Location', 'GSTIN', 'Category', 'Status', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -66,51 +91,93 @@ export default function StockistsPage() {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center text-gray-500">
+                  <td colSpan={7} className="px-5 py-16 text-center text-gray-500">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-cyan-500 mb-3" />
-                    Loading stockists...
+                    Loading distributors...
                   </td>
                 </tr>
               ) : data?.stockists?.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center text-gray-500 bg-gray-50/50">
+                  <td colSpan={7} className="px-5 py-16 text-center text-gray-500 bg-gray-50/50">
                     <PackageOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    No stockists found.
+                    No distributors found.
                   </td>
                 </tr>
               ) : (
-                data?.stockists?.map((stockist: any) => (
-                  <tr key={stockist.id} className="hover:bg-cyan-50/30 transition-colors">
-                    <td className="px-5 py-4">
-                      <Link href={`/dashboard/stockists/${stockist.id}`} className="font-bold text-gray-900 hover:text-cyan-600 hover:underline">
-                        {stockist.name}
-                      </Link>
-                      <div className="text-xs text-gray-500 mt-0.5">{stockist.stockistCode}</div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="text-gray-900">{stockist.contactFirstName} {stockist.contactLastName}</div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                        <Phone className="w-3 h-3" /> {stockist.mobileNumber || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-col gap-1 text-gray-600">
-                        <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {stockist.city || '—'}, {stockist.state || '—'}</div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <FileText className="w-3.5 h-3.5 text-gray-400" /> {stockist.gstinNumber || '—'}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      {stockist.category ? <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-md">{stockist.category} Class</span> : '—'}
-                    </td>
-                    <td className="px-5 py-4 text-xs text-gray-500">
-                      {stockist.visitDays?.length > 0 ? stockist.visitDays.join(', ') : '—'}
-                    </td>
-                  </tr>
-                ))
+                data?.stockists?.map((stockist: any) => {
+                  const isActive = stockist.isActive !== false;
+                  return (
+                    <tr key={stockist.id} className="hover:bg-cyan-50/30 transition-colors">
+                      <td className="px-5 py-4">
+                        <Link href={`/dashboard/stockists/${stockist.id}`} className="font-bold text-gray-900 hover:text-cyan-600 hover:underline">
+                          {stockist.name}
+                        </Link>
+                        <div className="text-xs text-gray-500 mt-0.5">{stockist.stockistCode || '—'}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="text-gray-900">{stockist.contactFirstName} {stockist.contactLastName}</div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                          <Phone className="w-3 h-3" /> {stockist.mobileNumber || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col gap-1 text-gray-600">
+                          <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {stockist.city || '—'}, {stockist.state || '—'}</div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5 text-gray-600">
+                          <FileText className="w-3.5 h-3.5 text-gray-400" /> {stockist.gstinNumber || '—'}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        {stockist.category ? <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-md">{stockist.category} Class</span> : '—'}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1">
+                          <Link
+                            href={`/dashboard/stockists/${stockist.id}`}
+                            className="p-1.5 hover:bg-cyan-50 rounded-lg text-cyan-600 transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to ${isActive ? 'deactivate' : 'reactivate'} this distributor?`)) {
+                                toggleActiveMutation.mutate({ id: stockist.id, isActive });
+                              }
+                            }}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isActive ? 'hover:bg-amber-50 text-amber-600' : 'hover:bg-emerald-50 text-emerald-600'
+                            }`}
+                            title={isActive ? 'Deactivate' : 'Reactivate'}
+                          >
+                            {isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to permanently delete ${stockist.name}?`)) {
+                                deleteMutation.mutate(stockist.id);
+                              }
+                            }}
+                            className="p-1.5 hover:bg-rose-50 rounded-lg text-rose-600 transition-colors"
+                            title="Delete Distributor"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

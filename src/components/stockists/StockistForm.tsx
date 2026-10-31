@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, AlertCircle, ChevronDown, Phone, Mail, MapPin, PackageOpen } from 'lucide-react';
 import { api } from '@/lib/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { INDIAN_STATES, INDIAN_STATES_AND_DISTRICTS } from '@/lib/constants';
 
 // ─── Stockist Add Form ──────────────────────────────────────────────────────────
@@ -18,6 +18,7 @@ const RING = '#0891b233';
 
 export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
+  const qc = useQueryClient();
 
   // Queries
   const { data: areaList = [] } = useQuery({
@@ -105,6 +106,7 @@ export default function StockistForm({ onSuccess }: { onSuccess?: () => void }) 
         visitDays: visitDays.length > 0 ? visitDays : undefined,
         productIds: productIds.length > 0 ? productIds : undefined,
       });
+      await qc.invalidateQueries({ queryKey: ['stockists'] });
       if (onSuccess) onSuccess();
       else router.push('/dashboard/stockists');
     } catch (e: any) { setError(e.response?.data?.message || e.message || 'Failed to save stockist'); }

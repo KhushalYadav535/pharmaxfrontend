@@ -131,7 +131,7 @@ export default function RegularizationQueuePage() {
           <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
             <Link href="/dashboard" className="hover:text-slate-800">Dashboard</Link>
             <span>/</span>
-            <Link href="/dashboard/workforce/attendance" className="hover:text-slate-800">Attendance</Link>
+            <Link href="/dashboard/attendance" className="hover:text-slate-800">Field Attendance</Link>
             <span>/</span>
             <span className="text-indigo-700 font-medium">Regularization Queue</span>
           </div>
@@ -143,11 +143,11 @@ export default function RegularizationQueuePage() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/workforce/attendance"
+            href="/dashboard/attendance"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Attendance Register
+            Field Attendance
           </Link>
           <button
             onClick={() => setShowCreateModal(true)}

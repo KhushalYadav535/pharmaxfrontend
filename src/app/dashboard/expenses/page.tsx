@@ -233,12 +233,14 @@ export default function ExpensesPage() {
               Review, verify, and sanction field force travel claims, fares, and daily allowances
             </p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" /> Submit Expense Claim
-          </button>
+          {user?.role !== 'SUPER_ADMIN' && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" /> Submit Expense Claim
+            </button>
+          )}
         </div>
 
         {/* Top KPI Cards */}

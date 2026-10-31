@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, AlertCircle, ChevronDown, Phone, Mail, MapPin, Building } from 'lucide-react';
 import { api } from '@/lib/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { INDIAN_STATES, INDIAN_STATES_AND_DISTRICTS } from '@/lib/constants';
 
 // ─── CFA Add Form ──────────────────────────────────────────────────────────
@@ -15,6 +15,7 @@ const RING = '#0891b233';
 
 export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
+  const qc = useQueryClient();
 
   // Queries
   const { data: areaList = [] } = useQuery({
@@ -108,6 +109,7 @@ export default function CfaForm({ onSuccess }: { onSuccess?: () => void }) {
         productIds: productIds.length > 0 ? productIds : undefined,
         visitDays: visitDays.length > 0 ? visitDays : undefined,
       });
+      await qc.invalidateQueries({ queryKey: ['cfas'] });
       if (onSuccess) onSuccess();
       else router.push('/dashboard/cfas');
     } catch (err: any) {

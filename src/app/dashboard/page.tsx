@@ -261,14 +261,6 @@ export default function DashboardPage() {
                 </Link>
 
                 <Link
-                  href="/dashboard/visits/monitor"
-                  className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm px-4 py-3 rounded-xl transition-colors border border-slate-200 shadow-2xs"
-                >
-                  <Activity className="w-4 h-4 text-emerald-600" />
-                  <span>Live Field Monitor</span>
-                </Link>
-
-                <Link
                   href="/dashboard/detailing-categories"
                   className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm px-4 py-3 rounded-xl transition-colors border border-slate-200 shadow-2xs"
                 >
@@ -704,19 +696,6 @@ export default function DashboardPage() {
                         <Building2 className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-bold text-slate-900">Territory Headquarters</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
-
-                  <Link
-                    href="/dashboard/visits/monitor"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-200 text-slate-800 transition-all group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-rose-100/80 text-rose-700 flex items-center justify-center">
-                        <Activity className="w-4 h-4" />
-                      </div>
-                      <span className="text-xs font-bold text-slate-900">Live Field GPS Monitor</span>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
                   </Link>

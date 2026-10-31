@@ -104,12 +104,14 @@ export default function TourPlanningPage() {
                 Batch Plan MR Visits
               </Link>
             )}
-            <button
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> Create Tour Plan
-            </button>
+            {user?.role !== 'SUPER_ADMIN' && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> Create Tour Plan
+              </button>
+            )}
           </div>
         </div>
 

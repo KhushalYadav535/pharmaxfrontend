@@ -1,12 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Plus, Search, Loader2, Phone, MapPin, Building, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import {
+  Plus, Search, Loader2, Phone, MapPin, Building,
+  ChevronLeft, ChevronRight, FileText, Eye, PowerOff, Power, Trash2
+} from 'lucide-react';
 import Link from 'next/link';
 
 export default function CfasPage() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -14,6 +18,27 @@ export default function CfasPage() {
     queryKey: ['cfas', search, page],
     queryFn: () => api.get('/cfas', { params: { search, page, limit: 20 } }).then((r) => r.data.data),
     placeholderData: (prev) => prev,
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      isActive ? api.patch(`/cfas/${id}/deactivate`) : api.patch(`/cfas/${id}/reactivate`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cfas'] });
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to update CFA status');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/cfas/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cfas'] });
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to delete CFA');
+    },
   });
 
   return (
@@ -24,7 +49,7 @@ export default function CfasPage() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Building className="w-6 h-6 text-indigo-600" /> CFA Directory
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Manage Carrying and Forwarding Agents</p>
+          <p className="text-gray-500 text-sm mt-1">Manage Carrying and Forwarding Agents & Hubs</p>
         </div>
         <Link href="/dashboard/cfas/new" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
           <Plus className="w-4 h-4" /> Add CFA
@@ -58,7 +83,7 @@ export default function CfasPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                {['CFA', 'Contact', 'Location', 'GSTIN', 'Status'].map((h) => (
+                {['CFA', 'Contact', 'Location', 'GSTIN', 'Status', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -66,50 +91,88 @@ export default function CfasPage() {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-16 text-center text-gray-500">
+                  <td colSpan={6} className="px-5 py-16 text-center text-gray-500">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-500 mb-3" />
                     Loading CFAs...
                   </td>
                 </tr>
               ) : data?.cfas?.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-16 text-center text-gray-500 bg-gray-50/50">
+                  <td colSpan={6} className="px-5 py-16 text-center text-gray-500 bg-gray-50/50">
                     <Building className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                     No CFAs found.
                   </td>
                 </tr>
               ) : (
-                data?.cfas?.map((cfa: any) => (
-                  <tr key={cfa.id} className="hover:bg-indigo-50/30 transition-colors">
-                    <td className="px-5 py-4">
-                      <Link href={`/dashboard/cfas/${cfa.id}`} className="font-bold text-gray-900 hover:text-indigo-600 hover:underline">
-                        {cfa.name}
-                      </Link>
-                      <div className="text-xs text-gray-500 mt-0.5">{cfa.cfaCode}</div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="text-gray-900">{cfa.contactFirstName} {cfa.contactLastName}</div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                        <Phone className="w-3 h-3" /> {cfa.mobileNumber || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-col gap-1 text-gray-600">
-                        <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {cfa.city || '—'}, {cfa.state || '—'}</div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <FileText className="w-3.5 h-3.5 text-gray-400" /> {cfa.gstinNumber || '—'}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-md ${cfa.isActive !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                        {cfa.isActive !== false ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                data?.cfas?.map((cfa: any) => {
+                  const isActive = cfa.isActive !== false;
+                  return (
+                    <tr key={cfa.id} className="hover:bg-indigo-50/30 transition-colors">
+                      <td className="px-5 py-4">
+                        <Link href={`/dashboard/cfas/${cfa.id}`} className="font-bold text-gray-900 hover:text-indigo-600 hover:underline">
+                          {cfa.name}
+                        </Link>
+                        <div className="text-xs text-gray-500 mt-0.5">{cfa.cfaCode}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="text-gray-900">{cfa.contactFirstName} {cfa.contactLastName}</div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                          <Phone className="w-3 h-3" /> {cfa.mobileNumber || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col gap-1 text-gray-600">
+                          <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {cfa.city || '—'}, {cfa.state || '—'}</div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5 text-gray-600">
+                          <FileText className="w-3.5 h-3.5 text-gray-400" /> {cfa.gstinNumber || '—'}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-md ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                          {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1">
+                          <Link
+                            href={`/dashboard/cfas/${cfa.id}`}
+                            className="p-1.5 hover:bg-indigo-50 rounded-lg text-indigo-600 transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to ${isActive ? 'deactivate' : 'reactivate'} this CFA?`)) {
+                                toggleActiveMutation.mutate({ id: cfa.id, isActive });
+                              }
+                            }}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isActive ? 'hover:bg-amber-50 text-amber-600' : 'hover:bg-emerald-50 text-emerald-600'
+                            }`}
+                            title={isActive ? 'Deactivate' : 'Reactivate'}
+                          >
+                            {isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to permanently delete CFA ${cfa.name}?`)) {
+                                deleteMutation.mutate(cfa.id);
+                              }
+                            }}
+                            className="p-1.5 hover:bg-rose-50 rounded-lg text-rose-600 transition-colors"
+                            title="Delete CFA"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

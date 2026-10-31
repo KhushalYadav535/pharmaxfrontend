@@ -1,541 +1,1052 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
-import api from '@/lib/api';
-import { formatDate, CLASSIFICATION_COLORS, VISIT_STATUS_COLORS } from '@/lib/utils';
-import {
-  ArrowLeft,
-  Phone,
-  MapPin,
-  Star,
-  Building2,
-  Calendar,
-  Package,
-  Edit2,
-  SlidersHorizontal,
-  CheckCircle,
-  XCircle,
-  ShieldCheck,
-  Building,
-  Mail,
-  Store,
-  Clock,
-  Layers,
-  Check,
-  Loader2,
-  Sparkles,
-  Play,
-  Trash2,
-  AlertTriangle
-} from 'lucide-react';
-import Link from 'next/link';
-import { useAuth } from '@/lib/auth-context';
-import DoctorDetailingPlanModal, {
-  DoctorDetailingPlan,
-  getDoctorDetailingPlan
-} from '@/components/operations/DoctorDetailingPlanModal';
-
-export default function DoctorDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const isAdmin = ['SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'].includes(user?.role || '');
-
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [isDetailingPlanModalOpen, setIsDetailingPlanModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [doctorPlan, setDoctorPlan] = useState<DoctorDetailingPlan | null>(null);
-
-  // Fetch Doctor details
-  const { data, isLoading } = useQuery({
-    queryKey: ['doctor', id],
-    queryFn: () => api.get(`/doctors/${id}`).then((r) => r.data.data),
-  });
-
-  // Fetch Categories for switcher modal
-  const { data: catData } = useQuery({
-    queryKey: ['detailing-categories-list'],
-    queryFn: () => api.get('/content/categories').then((r) => r.data.data),
-  });
-  const categoriesList = Array.isArray(catData) ? catData : [];
-
-  // Load doctor's detailing plan
-  useEffect(() => {
-    if (id) {
-      const plan = getDoctorDetailingPlan(id);
-      setDoctorPlan(plan);
-    }
-  }, [id, isDetailingPlanModalOpen]);
-
-  // Mutation to update Doctor Category
-  const updateCategoryMutation = useMutation({
-    mutationFn: (newCategory: string) =>
-      api.put(`/doctors/${id}`, {
-        category: newCategory,
-        specialty: newCategory,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['doctor', id] });
-      qc.invalidateQueries({ queryKey: ['doctors'] });
-      setIsCategoryModalOpen(false);
-    },
-  });
-
-  // Mutation for 1-click Approve / Reject
-  const updateStatusMutation = useMutation({
-    mutationFn: (status: 'APPROVED' | 'REJECTED') =>
-      api.post(`/approvals/entities/Doctor/${id}`, { status }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['doctor', id] });
-      qc.invalidateQueries({ queryKey: ['doctors'] });
-      qc.invalidateQueries({ queryKey: ['approvals-summary'] });
-    },
-  });
-
-  // Mutation to delete doctor (Admin only)
-  const deleteDoctorMutation = useMutation({
-    mutationFn: () => api.delete(`/doctors/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['doctors'] });
-      qc.invalidateQueries({ queryKey: ['headquarters-list'] });
-      router.push('/dashboard/doctors');
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.message || 'Failed to delete doctor');
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="h-40 bg-slate-100 rounded-3xl animate-pulse" />
-        <div className="grid grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) return <div className="text-center py-16 text-slate-400 font-semibold">Doctor not found</div>;
-
-  const isPending = data.approvalStatus === 'PENDING';
-  const prescribedMedicinesCount = data.productsSelected?.length || 0;
-  const curatedSlidesCount = doctorPlan?.selectedContentIds?.length || 0;
-
-  return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-16">
-      {/* Top Breadcrumb & Action Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 text-xs font-semibold transition-colors w-fit"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Doctor Directory
-        </button>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {isPending && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => updateStatusMutation.mutate('REJECTED')}
-                disabled={updateStatusMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors"
-              >
-                <XCircle className="w-4 h-4" /> Reject Doctor
-              </button>
-              <button
-                onClick={() => updateStatusMutation.mutate('APPROVED')}
-                disabled={updateStatusMutation.isPending}
-                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-              >
-                <CheckCircle className="w-4 h-4" /> Approve Doctor
-              </button>
-            </div>
-          )}
-
-          {/* Curate Slide Set */}
-          <button
-            onClick={() => setIsDetailingPlanModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-xl transition-colors shadow-sm"
-          >
-            <Sparkles className="w-4 h-4 text-purple-600" />
-            Curate Slide Deck ({curatedSlidesCount})
-          </button>
-
-          {/* Start Detailing Call */}
-          <Link
-            href={`/dashboard/digital-detailing?entityId=${data.id}&entityName=${encodeURIComponent(`Dr. ${data.firstName} ${data.lastName}`)}&specialty=${encodeURIComponent(data.specialty || '')}&category=${encodeURIComponent(data.category || '')}&usePlan=true`}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm shadow-emerald-600/20"
-          >
-            <Play className="w-4 h-4 fill-white" /> Start Detailing Call
-          </Link>
-
-          <button
-            onClick={() => {
-              setSelectedCategory(data.category || data.specialty || '');
-              setIsCategoryModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-sm"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-emerald-600" /> Switch Category
-          </button>
-
-          <Link
-            href={`/dashboard/doctors/${id}/edit`}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition-colors"
-          >
-            <Edit2 className="w-4 h-4" /> Edit Doctor
-          </Link>
-
-          {isAdmin && (
-            <button
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors shadow-sm"
-              title="Delete this doctor record"
-            >
-              <Trash2 className="w-4 h-4 text-rose-600" /> Delete Doctor
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Doctor Profile Card */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-emerald-700/20">
-              {data.firstName?.[0] || 'D'}{data.lastName?.[0] || 'R'}
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
-                  {data.doctorCode || 'DOC-GEN'}
-                </span>
-                {data.isKol && (
-                  <span className="flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-2 py-0.5 rounded-md">
-                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Key Opinion Leader
-                  </span>
-                )}
-                <span
-                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                    data.approvalStatus === 'APPROVED'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : data.approvalStatus === 'PENDING'
-                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                      : 'bg-rose-50 text-rose-700 border border-rose-200'
-                  }`}
-                >
-                  {data.approvalStatus || 'APPROVED'}
-                </span>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {data.salutation || 'Dr.'} {data.firstName} {data.lastName}
-              </h1>
-              <p className="text-slate-500 text-xs font-medium">
-                {data.qualification || 'MBBS'} • {data.specialty || 'General Practitioner'}
-                {data.city && ` • ${data.city}`}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 self-end sm:self-center">
-            <div className="bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-center">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Classification</span>
-              <span className={`text-sm font-black ${CLASSIFICATION_COLORS[data.classification]}`}>
-                Class {data.classification?.replace('_', '+') || 'A'}
-              </span>
-            </div>
-            <div className="bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-center">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Rx Potential</span>
-              <span className="text-sm font-black text-emerald-700">{data.prescriptionPotential || 8}/10</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── DETAILING SLIDE DECK & PRESCRIBED PRODUCTS DOSSIER ── */}
-        <div className="mt-6 pt-6 border-t border-slate-100 bg-gradient-to-r from-purple-50/60 to-emerald-50/60 -mx-6 -mb-6 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/20">
-              <Layers className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-slate-900">Custom Detailing Slide Set</h4>
-                <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                  Active
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 mt-0.5">
-                {prescribedMedicinesCount} Prescribed Medicines Mapped • {curatedSlidesCount} Detailing Slides in Sequence Deck
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => setIsDetailingPlanModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Reorder & Curate Slides
-            </button>
-            <Link
-              href={`/dashboard/digital-detailing?entityId=${data.id}&entityName=${encodeURIComponent(`Dr. ${data.firstName} ${data.lastName}`)}&specialty=${encodeURIComponent(data.specialty || '')}&category=${encodeURIComponent(data.category || '')}&usePlan=true`}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-colors shadow-xs"
-            >
-              <Play className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" /> Detailing Call
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid Meta Information */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-          <Building2 className="w-4 h-4 text-emerald-600" /> Doctor Census & Territory Mapping
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Headquarter</span>
-            <span className="font-bold text-slate-900 text-sm">{data.hq?.name || data.territory?.name || 'Nagpur HQ'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned City Area</span>
-            <span className="font-bold text-slate-900 text-sm">{data.area?.name || data.city || '—'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Interior</span>
-            <span className="font-bold text-slate-900 text-sm">{data.interior?.name || '—'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Detailing Category</span>
-            <span className="font-bold text-emerald-800 text-sm">{data.category || data.specialty || 'General'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Specialty & Degree</span>
-            <span className="font-bold text-slate-900 text-sm">{data.qualification || 'MBBS'} ({data.specialty})</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Prescribing Retailer / Chemist</span>
-            <span className="font-bold text-slate-900 text-sm">{data.retailer?.name || 'Primary Territory Chemist'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Clinic / Hospital</span>
-            <span className="font-bold text-slate-900 text-sm">{data.hospital?.name || data.address1 || 'Private Clinic'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Mobile & WhatsApp</span>
-            <span className="font-bold text-slate-900 text-sm">{data.phone || data.whatsappNumber || 'Not provided'}</span>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Email ID</span>
-            <span className="font-bold text-slate-900 text-sm">{data.email || 'Not provided'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Visit History Log */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-emerald-600" /> Recent Field Visits
-        </h2>
-
-        {data.visits && data.visits.length > 0 ? (
-          <div className="space-y-3">
-            {data.visits.map((visit: any) => (
-              <div
-                key={visit.id}
-                className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all bg-slate-50/50 text-xs"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-2.5 h-2.5 rounded-full ${
-                      visit.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-blue-500'
-                    }`}
-                  />
-                  <div>
-                    <p className="font-bold text-slate-900">
-                      Visit on {formatDate(visit.plannedDate || visit.checkInTime)}
-                    </p>
-                    {visit.user && (
-                      <p className="text-slate-500 text-[11px]">
-                        By {visit.user.firstName} {visit.user.lastName}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {visit.pobAmount > 0 && (
-                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      POB: {visit.pobAmount}
-                    </span>
-                  )}
-                  <span
-                    className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${VISIT_STATUS_COLORS[visit.status]}`}
-                  >
-                    {visit.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-10 text-slate-400">
-            <Calendar className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="font-medium text-xs">No field visits logged for this doctor yet.</p>
-          </div>
-        )}
-      </div>
-
-      {/* ──────────────── MODAL: CATEGORY SWITCHER ──────────────── */}
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
-                  <SlidersHorizontal className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Switch Detailing Category</h3>
-                  <p className="text-xs text-slate-500">Dr. {data.firstName} {data.lastName} ({data.doctorCode})</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsCategoryModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:bg-slate-200 rounded-xl"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-3 max-h-96 overflow-y-auto">
-              <p className="text-xs text-slate-600 font-medium">
-                Select the target specialty detailing category. All relevant Biocros medicines mapped to this category will automatically be featured during digital detailing calls:
-              </p>
-
-              <div className="space-y-2">
-                {categoriesList.map((cat: any) => {
-                  const isChecked = selectedCategory === cat.name;
-                  return (
-                    <button
-                      key={cat.id || cat.key}
-                      onClick={() => setSelectedCategory(cat.name)}
-                      className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
-                        isChecked
-                          ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div>
-                        <p className="font-bold text-xs text-slate-900">{cat.name}</p>
-                        <p className="text-[11px] text-slate-500">{cat.productsCount || 0} Biocros products mapped</p>
-                      </div>
-                      {isChecked && (
-                        <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
-                          <Check className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2.5">
-              <button
-                onClick={() => setIsCategoryModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => updateCategoryMutation.mutate(selectedCategory)}
-                disabled={updateCategoryMutation.isPending || !selectedCategory}
-                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {updateCategoryMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Save Category Assignment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ──────────────── MODAL: DETAILING PLAN & SLIDE SET ──────────────── */}
-      {isDetailingPlanModalOpen && (
-        <DoctorDetailingPlanModal
-          isOpen={isDetailingPlanModalOpen}
-          onClose={() => setIsDetailingPlanModalOpen(false)}
-          doctor={data}
-          onPlanSaved={(saved) => {
-            setDoctorPlan(saved);
-          }}
-        />
-      )}
-
-      {/* ──────────────── MODAL: CONFIRM DELETE DOCTOR ──────────────── */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Delete Doctor Profile?</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Dr. {data.firstName} {data.lastName} ({data.doctorCode || 'Doctor'})
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 space-y-1">
-              <p className="font-bold flex items-center gap-1.5 text-amber-900">
-                <AlertTriangle className="w-4 h-4 text-amber-600" /> Warning
-              </p>
-              <p>
-                Deleting this doctor will remove them from active field lists, MR tour plans, and doctor directories. Existing past visits and order records will be preserved for audit history.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsDeleteModalOpen(false)}
-                disabled={deleteDoctorMutation.isPending}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteDoctorMutation.mutate()}
-                disabled={deleteDoctorMutation.isPending}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50"
-              >
-                {deleteDoctorMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Yes, Delete Doctor
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+'use client';
+
+import { useState, useEffect } from 'react';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useParams, useRouter } from 'next/navigation';
+
+import api from '@/lib/api';
+
+import { formatDate, CLASSIFICATION_COLORS, VISIT_STATUS_COLORS } from '@/lib/utils';
+
+import {
+
+  ArrowLeft,
+
+  Phone,
+
+  MapPin,
+
+  Star,
+
+  Building2,
+
+  Calendar,
+
+  Package,
+
+  Edit2,
+
+  SlidersHorizontal,
+
+  CheckCircle,
+
+  XCircle,
+
+  ShieldCheck,
+
+  Building,
+
+  Mail,
+
+  Store,
+
+  Clock,
+
+  Layers,
+
+  Check,
+
+  Loader2,
+
+  Sparkles,
+
+  Play,
+
+  Trash2,
+
+  AlertTriangle,
+  Pencil,
+
+  Power,
+
+} from 'lucide-react';
+
+import Link from 'next/link';
+
+import { useAuth } from '@/lib/auth-context';
+
+import DoctorDetailingPlanModal, {
+
+  DoctorDetailingPlan,
+
+  getDoctorDetailingPlan
+
+} from '@/components/operations/DoctorDetailingPlanModal';
+
+export default function DoctorDetailPage() {
+
+  const { id } = useParams<{ id: string }>();
+
+  const router = useRouter();
+
+  const qc = useQueryClient();
+
+  const { user } = useAuth();
+
+  const isAdmin = ['SUPER_ADMIN', 'SALES_ADMIN', 'ADMIN'].includes(user?.role || '');
+
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  const [selectedCategory, setSelectedCategory] = useState('');
+
+  const [isDetailingPlanModalOpen, setIsDetailingPlanModalOpen] = useState(false);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+
+
+  const [doctorPlan, setDoctorPlan] = useState<DoctorDetailingPlan | null>(null);
+
+  // Fetch Doctor details
+
+  const { data, isLoading } = useQuery({
+
+    queryKey: ['doctor', id],
+
+    queryFn: () => api.get(`/doctors/${id}`).then((r) => r.data.data),
+
+  });
+
+  const toggleStatusMutation = useMutation({
+
+    mutationFn: () =>
+
+      data.isActive !== false
+
+        ? api.patch(`/doctors/${id}/deactivate`)
+
+        : api.patch(`/doctors/${id}/reactivate`),
+
+    onSuccess: () => {
+
+      qc.invalidateQueries({ queryKey: ['doctor', id] });
+
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+
+    },
+
+    onError: (err: any) => {
+
+      alert(err.response?.data?.message || 'Failed to update doctor status');
+
+    },
+
+  });
+
+  // Fetch Categories for switcher modal
+
+  const { data: catData } = useQuery({
+
+    queryKey: ['detailing-categories-list'],
+
+    queryFn: () => api.get('/content/categories').then((r) => r.data.data),
+
+  });
+
+  const categoriesList = Array.isArray(catData) ? catData : [];
+
+  // Load doctor's detailing plan
+
+  useEffect(() => {
+
+    if (id) {
+
+      const plan = getDoctorDetailingPlan(id);
+
+      setDoctorPlan(plan);
+
+    }
+
+  }, [id, isDetailingPlanModalOpen]);
+
+  // Mutation to update Doctor Category
+
+  const updateCategoryMutation = useMutation({
+
+    mutationFn: (newCategory: string) =>
+
+      api.put(`/doctors/${id}`, {
+
+        category: newCategory,
+
+        specialty: newCategory,
+
+      }),
+
+    onSuccess: () => {
+
+      qc.invalidateQueries({ queryKey: ['doctor', id] });
+
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+
+      setIsCategoryModalOpen(false);
+
+    },
+
+  });
+
+  // Mutation for 1-click Approve / Reject
+
+  const updateStatusMutation = useMutation({
+
+    mutationFn: (status: 'APPROVED' | 'REJECTED') =>
+
+      api.post(`/approvals/entities/Doctor/${id}`, { status }),
+
+    onSuccess: () => {
+
+      qc.invalidateQueries({ queryKey: ['doctor', id] });
+
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+
+      qc.invalidateQueries({ queryKey: ['approvals-summary'] });
+
+    },
+
+  });
+
+  // Mutation to delete doctor (Admin only)
+
+  const deleteDoctorMutation = useMutation({
+
+    mutationFn: () => api.delete(`/doctors/${id}`),
+
+    onSuccess: () => {
+
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+
+      qc.invalidateQueries({ queryKey: ['headquarters-list'] });
+
+      router.push('/dashboard/doctors');
+
+    },
+
+    onError: (err: any) => {
+
+      alert(err.response?.data?.message || 'Failed to delete doctor');
+
+    },
+
+  });
+
+  if (isLoading) {
+
+    return (
+
+      <div className="max-w-5xl mx-auto space-y-6">
+
+        <div className="h-40 bg-slate-100 rounded-3xl animate-pulse" />
+
+        <div className="grid grid-cols-4 gap-4">
+
+          {[1, 2, 3, 4].map((i) => (
+
+            <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />
+
+          ))}
+
+        </div>
+
+      </div>
+
+    );
+
+  }
+
+  if (!data) return <div className="text-center py-16 text-slate-400 font-semibold">Doctor not found</div>;
+
+  const isPending = data.approvalStatus === 'PENDING';
+
+  const prescribedMedicinesCount = data.productsSelected?.length || 0;
+
+  const curatedSlidesCount = doctorPlan?.selectedContentIds?.length || 0;
+
+  return (
+
+    <div className="max-w-5xl mx-auto space-y-6 pb-16">
+
+      {/* Top Breadcrumb & Action Row */}
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+        <button
+
+          onClick={() => router.back()}
+
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 text-xs font-semibold transition-colors w-fit"
+
+        >
+
+          <ArrowLeft className="w-4 h-4" /> Back to Doctor Directory
+
+        </button>
+
+        <div className="flex items-center gap-2 flex-wrap">
+
+          {isPending && (
+
+            <div className="flex items-center gap-2">
+
+              <button
+
+                onClick={() => updateStatusMutation.mutate('REJECTED')}
+
+                disabled={updateStatusMutation.isPending}
+
+                className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors"
+
+              >
+
+                <XCircle className="w-4 h-4" /> Reject Doctor
+
+              </button>
+
+              <button
+
+                onClick={() => updateStatusMutation.mutate('APPROVED')}
+
+                disabled={updateStatusMutation.isPending}
+
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+
+              >
+
+                <CheckCircle className="w-4 h-4" /> Approve Doctor
+
+              </button>
+
+            </div>
+
+          )}
+
+          {/* Curate Slide Set */}
+
+          <button
+
+            onClick={() => setIsDetailingPlanModalOpen(true)}
+
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-xl transition-colors shadow-sm"
+
+          >
+
+            <Sparkles className="w-4 h-4 text-purple-600" />
+
+            Curate Slide Deck ({curatedSlidesCount})
+
+          </button>
+
+          {/* Start Detailing Call */}
+
+          <Link
+
+            href={`/dashboard/digital-detailing?entityId=${data.id}&entityName=${encodeURIComponent(`Dr. ${data.firstName} ${data.lastName}`)}&specialty=${encodeURIComponent(data.specialty || '')}&category=${encodeURIComponent(data.category || '')}&usePlan=true`}
+
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm shadow-emerald-600/20"
+
+          >
+
+            <Play className="w-4 h-4 fill-white" /> Start Detailing Call
+
+          </Link>
+
+          <button
+
+            onClick={() => {
+
+              setSelectedCategory(data.category || data.specialty || '');
+
+              setIsCategoryModalOpen(true);
+
+            }}
+
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-sm"
+
+          >
+
+            <SlidersHorizontal className="w-4 h-4 text-emerald-600" /> Switch Category
+
+          </button>
+
+          <Link
+
+            href={`/dashboard/doctors/${id}/edit`}
+
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 transition-colors shadow-2xs"
+
+          >
+
+            <Pencil className="w-3.5 h-3.5 text-blue-600" /> Edit Doctor
+
+          </Link>
+
+          {isAdmin && (
+
+            <>
+
+              <button
+
+                onClick={() => toggleStatusMutation.mutate()}
+
+                disabled={toggleStatusMutation.isPending}
+
+                className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-colors shadow-2xs ${
+
+                  data.isActive !== false
+
+                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+
+                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+
+                }`}
+
+              >
+
+                <Power className="w-3.5 h-3.5" />
+
+                {data.isActive !== false ? 'Deactivate Doctor' : 'Reactivate Doctor'}
+
+              </button>
+
+              <button
+
+                onClick={() => setIsDeleteModalOpen(true)}
+
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors shadow-sm"
+
+                title="Delete this doctor record"
+
+              >
+
+                <Trash2 className="w-4 h-4 text-rose-600" /> Delete Doctor
+
+              </button>
+
+            </>
+
+          )}
+
+        </div>
+
+      </div>
+
+      {/* Main Doctor Profile Card */}
+
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 relative overflow-hidden">
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+
+          <div className="flex items-center gap-5">
+
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-emerald-700/20">
+
+              {data.firstName?.[0] || 'D'}{data.lastName?.[0] || 'R'}
+
+            </div>
+
+            <div className="space-y-1">
+
+              <div className="flex items-center gap-2">
+
+                <span className="font-mono text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
+
+                  {data.doctorCode || 'DOC-GEN'}
+
+                </span>
+
+                {data.isKol && (
+
+                  <span className="flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-2 py-0.5 rounded-md">
+
+                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Key Opinion Leader
+
+                  </span>
+
+                )}
+
+                <span
+
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+
+                    data.approvalStatus === 'APPROVED'
+
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+
+                      : data.approvalStatus === 'PENDING'
+
+                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
+
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+
+                  }`}
+
+                >
+
+                  {data.approvalStatus || 'APPROVED'}
+
+                </span>
+
+              </div>
+
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+
+                {data.salutation || 'Dr.'} {data.firstName} {data.lastName}
+
+              </h1>
+
+              <p className="text-slate-500 text-xs font-medium">
+
+                {data.qualification || 'MBBS'} • {data.specialty || 'General Practitioner'}
+
+                {data.city && ` • ${data.city}`}
+
+              </p>
+
+            </div>
+
+          </div>
+
+          <div className="flex items-center gap-3 self-end sm:self-center">
+
+            <div className="bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-center">
+
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Classification</span>
+
+              <span className={`text-sm font-black ${CLASSIFICATION_COLORS[data.classification]}`}>
+
+                Class {data.classification?.replace('_', '+') || 'A'}
+
+              </span>
+
+            </div>
+
+            <div className="bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-center">
+
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Rx Potential</span>
+
+              <span className="text-sm font-black text-emerald-700">{data.prescriptionPotential || 8}/10</span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* ── DETAILING SLIDE DECK & PRESCRIBED PRODUCTS DOSSIER ── */}
+
+        <div className="mt-6 pt-6 border-t border-slate-100 bg-gradient-to-r from-purple-50/60 to-emerald-50/60 -mx-6 -mb-6 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+          <div className="flex items-center gap-3.5">
+
+            <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/20">
+
+              <Layers className="w-6 h-6" />
+
+            </div>
+
+            <div>
+
+              <div className="flex items-center gap-2">
+
+                <h4 className="text-sm font-bold text-slate-900">Custom Detailing Slide Set</h4>
+
+                <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
+
+                  Active
+
+                </span>
+
+              </div>
+
+              <p className="text-xs text-slate-600 mt-0.5">
+
+                {prescribedMedicinesCount} Prescribed Medicines Mapped • {curatedSlidesCount} Detailing Slides in Sequence Deck
+
+              </p>
+
+            </div>
+
+          </div>
+
+          <div className="flex items-center gap-2.5">
+
+            <button
+
+              onClick={() => setIsDetailingPlanModalOpen(true)}
+
+              className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+
+            >
+
+              <Sparkles className="w-3.5 h-3.5" /> Reorder & Curate Slides
+
+            </button>
+
+            <Link
+
+              href={`/dashboard/digital-detailing?entityId=${data.id}&entityName=${encodeURIComponent(`Dr. ${data.firstName} ${data.lastName}`)}&specialty=${encodeURIComponent(data.specialty || '')}&category=${encodeURIComponent(data.category || '')}&usePlan=true`}
+
+              className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-colors shadow-xs"
+
+            >
+
+              <Play className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" /> Detailing Call
+
+            </Link>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Grid Meta Information */}
+
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+
+        <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+
+          <Building2 className="w-4 h-4 text-emerald-600" /> Doctor Census & Territory Mapping
+
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Headquarter</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.hq?.name || data.territory?.name || 'Nagpur HQ'}</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned City Area</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.area?.name || data.city || '—'}</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Interior</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.interior?.name || '—'}</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Detailing Category</span>
+
+            <span className="font-bold text-emerald-800 text-sm">{data.category || data.specialty || 'General'}</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Specialty & Degree</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.qualification || 'MBBS'} ({data.specialty})</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Prescribing Retailer / Chemist</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.retailer?.name || 'Primary Territory Chemist'}</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Clinic / Hospital</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.hospital?.name || data.address1 || 'Private Clinic'}</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Mobile & WhatsApp</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.phone || data.whatsappNumber || 'Not provided'}</span>
+
+          </div>
+
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+
+            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Email ID</span>
+
+            <span className="font-bold text-slate-900 text-sm">{data.email || 'Not provided'}</span>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Visit History Log */}
+
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+
+        <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+
+          <Calendar className="w-4 h-4 text-emerald-600" /> Recent Field Visits
+
+        </h2>
+
+        {data.visits && data.visits.length > 0 ? (
+
+          <div className="space-y-3">
+
+            {data.visits.map((visit: any) => (
+
+              <div
+
+                key={visit.id}
+
+                className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all bg-slate-50/50 text-xs"
+
+              >
+
+                <div className="flex items-center gap-3">
+
+                  <div
+
+                    className={`w-2.5 h-2.5 rounded-full ${
+
+                      visit.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-blue-500'
+
+                    }`}
+
+                  />
+
+                  <div>
+
+                    <p className="font-bold text-slate-900">
+
+                      Visit on {formatDate(visit.plannedDate || visit.checkInTime)}
+
+                    </p>
+
+                    {visit.user && (
+
+                      <p className="text-slate-500 text-[11px]">
+
+                        By {visit.user.firstName} {visit.user.lastName}
+
+                      </p>
+
+                    )}
+
+                  </div>
+
+                </div>
+
+                <div className="flex items-center gap-3">
+
+                  {visit.pobAmount > 0 && (
+
+                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+
+                      POB: {visit.pobAmount}
+
+                    </span>
+
+                  )}
+
+                  <span
+
+                    className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${VISIT_STATUS_COLORS[visit.status]}`}
+
+                  >
+
+                    {visit.status}
+
+                  </span>
+
+                </div>
+
+              </div>
+
+            ))}
+
+          </div>
+
+        ) : (
+
+          <div className="text-center py-10 text-slate-400">
+
+            <Calendar className="w-8 h-8 mx-auto mb-2 opacity-30" />
+
+            <p className="font-medium text-xs">No field visits logged for this doctor yet.</p>
+
+          </div>
+
+        )}
+
+      </div>
+
+      {/* ──────────────── MODAL: CATEGORY SWITCHER ──────────────── */}
+
+      {isCategoryModalOpen && (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+
+              <div className="flex items-center gap-2.5">
+
+                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+
+                  <SlidersHorizontal className="w-5 h-5" />
+
+                </div>
+
+                <div>
+
+                  <h3 className="font-bold text-slate-900 text-base">Switch Detailing Category</h3>
+
+                  <p className="text-xs text-slate-500">Dr. {data.firstName} {data.lastName} ({data.doctorCode})</p>
+
+                </div>
+
+              </div>
+
+              <button
+
+                onClick={() => setIsCategoryModalOpen(false)}
+
+                className="p-1.5 text-slate-400 hover:bg-slate-200 rounded-xl"
+
+              >
+
+                <XCircle className="w-5 h-5" />
+
+              </button>
+
+            </div>
+
+            <div className="p-6 space-y-3 max-h-96 overflow-y-auto">
+
+              <p className="text-xs text-slate-600 font-medium">
+
+                Select the target specialty detailing category. All relevant Biocros medicines mapped to this category will automatically be featured during digital detailing calls:
+
+              </p>
+
+              <div className="space-y-2">
+
+                {categoriesList.map((cat: any) => {
+
+                  const isChecked = selectedCategory === cat.name;
+
+                  return (
+
+                    <button
+
+                      key={cat.id || cat.key}
+
+                      onClick={() => setSelectedCategory(cat.name)}
+
+                      className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+
+                        isChecked
+
+                          ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20'
+
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+
+                      }`}
+
+                    >
+
+                      <div>
+
+                        <p className="font-bold text-xs text-slate-900">{cat.name}</p>
+
+                        <p className="text-[11px] text-slate-500">{cat.productsCount || 0} Biocros products mapped</p>
+
+                      </div>
+
+                      {isChecked && (
+
+                        <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+
+                          <Check className="w-3.5 h-3.5" />
+
+                        </div>
+
+                      )}
+
+                    </button>
+
+                  );
+
+                })}
+
+              </div>
+
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2.5">
+
+              <button
+
+                onClick={() => setIsCategoryModalOpen(false)}
+
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+
+              >
+
+                Cancel
+
+              </button>
+
+              <button
+
+                onClick={() => updateCategoryMutation.mutate(selectedCategory)}
+
+                disabled={updateCategoryMutation.isPending || !selectedCategory}
+
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-1.5"
+
+              >
+
+                {updateCategoryMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+
+                Save Category Assignment
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* ──────────────── MODAL: DETAILING PLAN & SLIDE SET ──────────────── */}
+
+      {isDetailingPlanModalOpen && (
+
+        <DoctorDetailingPlanModal
+
+          isOpen={isDetailingPlanModalOpen}
+
+          onClose={() => setIsDetailingPlanModalOpen(false)}
+
+          doctor={data}
+
+          onPlanSaved={(saved) => {
+
+            setDoctorPlan(saved);
+
+          }}
+
+        />
+
+      )}
+
+      {/* ──────────────── MODAL: CONFIRM DELETE DOCTOR ──────────────── */}
+
+      {isDeleteModalOpen && (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+
+            <div className="flex items-center gap-3">
+
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+
+                <Trash2 className="w-6 h-6" />
+
+              </div>
+
+              <div>
+
+                <h3 className="text-base font-bold text-slate-900">Delete Doctor Profile?</h3>
+
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+
+                  Dr. {data.firstName} {data.lastName} ({data.doctorCode || 'Doctor'})
+
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 space-y-1">
+
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+
+                <AlertTriangle className="w-4 h-4 text-amber-600" /> Warning
+
+              </p>
+
+              <p>
+
+                Deleting this doctor will remove them from active field lists, MR tour plans, and doctor directories. Existing past visits and order records will be preserved for audit history.
+
+              </p>
+
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+
+              <button
+
+                type="button"
+
+                onClick={() => setIsDeleteModalOpen(false)}
+
+                disabled={deleteDoctorMutation.isPending}
+
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+
+              >
+
+                Cancel
+
+              </button>
+
+              <button
+
+                type="button"
+
+                onClick={() => deleteDoctorMutation.mutate()}
+
+                disabled={deleteDoctorMutation.isPending}
+
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50"
+
+              >
+
+                {deleteDoctorMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+
+                Yes, Delete Doctor
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+    </div>
+
+  );
+
+}

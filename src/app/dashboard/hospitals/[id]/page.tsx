@@ -1,19 +1,47 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Building2, Users, MapPin, Phone, ChevronLeft, ClipboardList } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import {
+  Building2, Users, MapPin, Phone, ChevronLeft,
+  ClipboardList, PowerOff, Power, Trash2
+} from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate, CLASSIFICATION_COLORS } from '@/lib/utils';
 
 export default function HospitalDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
+  const qc = useQueryClient();
 
   const { data: hospital, isLoading } = useQuery({
     queryKey: ['hospital', id],
     queryFn: () => api.get(`/hospitals/${id}`).then((r) => r.data.data),
     enabled: !!id,
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: (isActive: boolean) =>
+      isActive ? api.patch(`/hospitals/${id}/deactivate`) : api.patch(`/hospitals/${id}/reactivate`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hospital', id] });
+      qc.invalidateQueries({ queryKey: ['hospitals'] });
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to update hospital status');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/hospitals/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hospitals'] });
+      router.push('/dashboard/hospitals');
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to delete hospital');
+    },
   });
 
   if (isLoading) {
@@ -35,12 +63,47 @@ export default function HospitalDetailPage() {
     );
   }
 
+  const isActive = hospital.isActive !== false;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Back */}
-      <Link href="/dashboard/hospitals" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Back to Hospitals
-      </Link>
+      {/* Top Bar */}
+      <div className="flex items-center justify-between">
+        <Link href="/dashboard/hospitals" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          <ChevronLeft className="w-4 h-4" /> Back to Hospitals
+        </Link>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (confirm(`Are you sure you want to ${isActive ? 'deactivate' : 'reactivate'} ${hospital.name}?`)) {
+                toggleActiveMutation.mutate(isActive);
+              }
+            }}
+            disabled={toggleActiveMutation.isPending}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-colors shadow-2xs ${
+              isActive
+                ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+            }`}
+          >
+            {isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+            {isActive ? 'Deactivate' : 'Reactivate'}
+          </button>
+
+          <button
+            onClick={() => {
+              if (confirm(`Are you sure you want to permanently delete ${hospital.name}?`)) {
+                deleteMutation.mutate();
+              }
+            }}
+            disabled={deleteMutation.isPending}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors shadow-2xs"
+          >
+            <Trash2 className="w-4 h-4" /> Delete Hospital
+          </button>
+        </div>
+      </div>
 
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
@@ -49,7 +112,14 @@ export default function HospitalDetailPage() {
             <Building2 className="w-7 h-7 text-blue-600" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-gray-900">{hospital.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-gray-900">{hospital.name}</h1>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+              }`}>
+                {isActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
             <div className="flex items-center gap-4 mt-2 flex-wrap text-sm text-gray-500">
               <span className="px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">{hospital.category || 'Hospital'}</span>
               {hospital.city && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{hospital.city}, {hospital.state}</span>}

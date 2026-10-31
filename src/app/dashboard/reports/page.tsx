@@ -8,7 +8,7 @@ import api from '@/lib/api';
 import {
   FileSpreadsheet, ArrowLeft, Download, Filter, Calendar,
   Activity, Users, ShoppingCart, Gift, Receipt, Search,
-  CheckCircle2, AlertTriangle, XCircle, TrendingUp, RefreshCw, Loader2
+  CheckCircle2, AlertTriangle, XCircle, TrendingUp, RefreshCw, Loader2, PhoneCall
 } from 'lucide-react';
 
 export default function ReportsHubPage() {
@@ -197,16 +197,28 @@ export default function ReportsHubPage() {
           })}
         </div>
 
-        <Link
-          href="/dashboard/reports/mr-activity"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md shadow-indigo-200 transition-all cursor-pointer"
-        >
-          <Activity className="w-3.5 h-3.5" />
-          <span>MR Login & App Usage Report</span>
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/20 text-white uppercase tracking-wider">
-            Live
-          </span>
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/dashboard/reports/call-reports"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-200 transition-all cursor-pointer"
+          >
+            <PhoneCall className="w-3.5 h-3.5" />
+            <span>Call Reports</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/20 text-white uppercase tracking-wider">
+              Live
+            </span>
+          </Link>
+          <Link
+            href="/dashboard/reports/mr-activity"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md shadow-indigo-200 transition-all cursor-pointer"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>MR Login & App Usage Report</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/20 text-white uppercase tracking-wider">
+              Live
+            </span>
+          </Link>
+        </div>
       </div>
 
       {/* ── TAB 1: CONSOLIDATED DCR ── */}

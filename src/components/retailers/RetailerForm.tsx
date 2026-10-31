@@ -13,7 +13,7 @@ const CATEGORIES = ['A', 'B', 'C', 'NOT_APPLICABLE'];
 const VISIT_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const RING = '#8b5cf633'; // Violet
 
-export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) {
+export default function RetailerForm({ onSuccess, editData }: { onSuccess?: () => void; editData?: any }) {
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -43,46 +43,46 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
     queryFn: () => api.get('/headquarters', { params: { limit: 200 } }).then(r => r.data.data.headquarters || [])
   });
 
-  const [name, setName]                   = useState('');
-  const [gstinNumber, setGstinNumber]     = useState('');
-  const [panNumber, setPanNumber]         = useState('');
-  const [contactFirstName, setContactFirstName] = useState('');
-  const [contactLastName, setContactLastName]   = useState('');
-  const [contactDesignation, setContactDesignation] = useState('');
-  const [contactDept, setContactDept]     = useState('');
-  const [gender, setGender]               = useState('');
-  const [maritalStatus, setMaritalStatus] = useState('');
-  const [category, setCategory]           = useState('');
-  const [address1, setAddress1]           = useState('');
-  const [address2, setAddress2]           = useState('');
-  const [city, setCity]                   = useState('');
-  const [district, setDistrict]           = useState('');
-  const [state, setState]                 = useState('');
-  const [pin, setPin]                     = useState('');
-  const [areaId, setAreaId]               = useState('');
-  const [territoryId, setTerritoryId]     = useState('');
-  const [stockistId, setStockistId]       = useState('');
-  const [distributorId, setDistributorId] = useState('');
-  const [mobileNumber, setMobileNumber]   = useState('');
-  const [whatsappNumber, setWhatsappNumber] = useState('');
-  const [email, setEmail]                 = useState('');
-  const [dateOfBirth, setDateOfBirth]     = useState('');
-  const [marriageAnniversary, setMarriageAnniversary] = useState('');
-  const [website, setWebsite]             = useState('');
-  const [facebook, setFacebook]           = useState('');
-  const [instagram, setInstagram]         = useState('');
-  const [twitter, setTwitter]             = useState('');
-  const [visitDays, setVisitDays]         = useState<string[]>([]);
+  const [name, setName]                   = useState(editData?.name ?? '');
+  const [gstinNumber, setGstinNumber]     = useState(editData?.gstinNumber ?? '');
+  const [panNumber, setPanNumber]         = useState(editData?.panNumber ?? '');
+  const [contactFirstName, setContactFirstName] = useState(editData?.contactFirstName ?? '');
+  const [contactLastName, setContactLastName]   = useState(editData?.contactLastName ?? '');
+  const [contactDesignation, setContactDesignation] = useState(editData?.contactDesignation ?? '');
+  const [contactDept, setContactDept]     = useState(editData?.contactDept ?? '');
+  const [gender, setGender]               = useState(editData?.gender ?? '');
+  const [maritalStatus, setMaritalStatus] = useState(editData?.maritalStatus ?? '');
+  const [category, setCategory]           = useState(editData?.category ?? '');
+  const [address1, setAddress1]           = useState(editData?.address1 ?? editData?.address ?? '');
+  const [address2, setAddress2]           = useState(editData?.address2 ?? '');
+  const [city, setCity]                   = useState(editData?.city ?? '');
+  const [district, setDistrict]           = useState(editData?.district ?? '');
+  const [state, setState]                 = useState(editData?.state ?? '');
+  const [pin, setPin]                     = useState(editData?.pin ?? editData?.pincode ?? '');
+  const [areaId, setAreaId]               = useState(editData?.areaId ?? '');
+  const [territoryId, setTerritoryId]     = useState(editData?.territoryId ?? '');
+  const [stockistId, setStockistId]       = useState(editData?.stockistId ?? '');
+  const [distributorId, setDistributorId] = useState(editData?.distributorId ?? '');
+  const [mobileNumber, setMobileNumber]   = useState(editData?.mobileNumber ?? editData?.phone ?? '');
+  const [whatsappNumber, setWhatsappNumber] = useState(editData?.whatsappNumber ?? '');
+  const [email, setEmail]                 = useState(editData?.email ?? '');
+  const [dateOfBirth, setDateOfBirth]     = useState(editData?.dateOfBirth ? editData.dateOfBirth.split('T')[0] : '');
+  const [marriageAnniversary, setMarriageAnniversary] = useState(editData?.marriageAnniversary ? editData.marriageAnniversary.split('T')[0] : '');
+  const [website, setWebsite]             = useState(editData?.website ?? '');
+  const [facebook, setFacebook]           = useState(editData?.facebook ?? '');
+  const [instagram, setInstagram]         = useState(editData?.instagram ?? '');
+  const [twitter, setTwitter]             = useState(editData?.twitter ?? '');
+  const [visitDays, setVisitDays]         = useState<string[]>(editData?.visitDays ?? []);
   
   // Legacy backward compat
-  const [ownerName, setOwnerName]         = useState('');
-  const [pharmacistName, setPharmacistName] = useState('');
-  const [drugLicenseNumber, setDrugLicenseNumber] = useState('');
-  const [drugLicenseExpiry, setDrugLicenseExpiry] = useState('');
-  const [visitFrequency, setVisitFrequency] = useState('2');
-  const [geoTag, setGeoTag]               = useState('');
-  const [hqId, setHqId]                   = useState('');
-  const [productIds, setProductIds]       = useState<string[]>([]);
+  const [ownerName, setOwnerName]         = useState(editData?.ownerName ?? '');
+  const [pharmacistName, setPharmacistName] = useState(editData?.pharmacistName ?? '');
+  const [drugLicenseNumber, setDrugLicenseNumber] = useState(editData?.drugLicenseNumber ?? '');
+  const [drugLicenseExpiry, setDrugLicenseExpiry] = useState(editData?.drugLicenseExpiry ? editData.drugLicenseExpiry.split('T')[0] : '');
+  const [visitFrequency, setVisitFrequency] = useState(editData?.visitFrequency ? String(editData.visitFrequency) : '2');
+  const [geoTag, setGeoTag]               = useState(editData?.geoTag ?? '');
+  const [hqId, setHqId]                   = useState(editData?.hqId ?? '');
+  const [productIds, setProductIds]       = useState<string[]>(editData?.productIds ?? []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -97,7 +97,7 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
     if (!name.trim()) { setError('Retailer name is required'); return; }
     try {
       setIsSubmitting(true); setError('');
-      await api.post('/retailers', {
+      const payload = {
         name, gstinNumber: gstinNumber || undefined, panNumber: panNumber || undefined,
         contactFirstName: contactFirstName || undefined, contactLastName: contactLastName || undefined,
         contactDesignation: contactDesignation || undefined, contactDept: contactDept || undefined,
@@ -122,7 +122,12 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
         drugLicenseExpiry: drugLicenseExpiry ? new Date(drugLicenseExpiry).toISOString() : undefined,
         visitFrequency: Number(visitFrequency) || 2,
         approvalStatus: 'APPROVED',
-      });
+      };
+      if (editData?.id) {
+        await api.put(`/retailers/${editData.id}`, payload);
+      } else {
+        await api.post('/retailers', payload);
+      }
       await qc.invalidateQueries({ queryKey: ['retailers'] });
       if (onSuccess) onSuccess();
       else router.push('/dashboard/retailers');
@@ -367,7 +372,7 @@ export default function RetailerForm({ onSuccess }: { onSuccess?: () => void }) 
       <div className="px-6 pb-6 pt-6 border-t border-gray-100 flex justify-end">
         <button onClick={handleSubmit} disabled={isSubmitting}
           className="w-full md:w-auto px-10 bg-gradient-to-r from-violet-600 to-purple-600 hover:to-purple-500 text-white font-extrabold text-[15px] py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-60 disabled:transform-none disabled:shadow-none">
-          {isSubmitting ? 'SAVING...' : <><Send className="w-5 h-5" /> SAVE RETAILER</>}
+          {isSubmitting ? 'SAVING...' : editData ? 'UPDATE RETAILER' : <><Send className="w-5 h-5" /> SAVE RETAILER</>}
         </button>
       </div>
     </div>
