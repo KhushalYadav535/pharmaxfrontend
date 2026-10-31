@@ -119,7 +119,8 @@ export default function FieldCalendarPage() {
   // Map events to date strings
   const visitsByDate = useMemo(() => {
     const map: Record<string, any[]> = {};
-    monthVisits.forEach((v: any) => {
+    const targetVisits = selectedRep ? monthVisits.filter((v: any) => v.userId === selectedRep) : monthVisits;
+    targetVisits.forEach((v: any) => {
       const d = (v.plannedDate || v.checkInTime || '').slice(0, 10);
       if (d) {
         if (!map[d]) map[d] = [];
@@ -127,7 +128,7 @@ export default function FieldCalendarPage() {
       }
     });
     return map;
-  }, [monthVisits]);
+  }, [monthVisits, selectedRep]);
 
   const tasksByDate = useMemo(() => {
     const map: Record<string, any[]> = {};
